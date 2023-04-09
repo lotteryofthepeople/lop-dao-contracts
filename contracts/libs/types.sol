@@ -9,10 +9,42 @@ library Types {
         ACTIVE
     }
 
+    enum JoinRequestStatus {
+        NONE,
+        CREATED,
+        PASSED,
+        CANCELLED
+    }
+
+    enum ProductMemberStatus {
+        NONE,
+        JOINNING,
+        JOINED
+    }
+
     struct ShareHolderProposal {
         uint256 budget;
         address owner;
         ProposalStatus status;
+        uint256 voteYes;
+        uint256 voteNo;
+    }
+
+    struct ProductJoinRequest {
+        JoinRequestStatus status;
+        address owner;
+    }
+
+    struct ProductMember {
+        address owner;
+        uint256 requestId;
+        ProductMemberStatus status;
+    }
+
+    struct ProductProposal {
+        string metadata;
+        ProposalStatus status;
+        address owner;
         uint256 voteYes;
         uint256 voteNo;
     }

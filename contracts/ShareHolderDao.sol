@@ -11,10 +11,10 @@ contract ShareHolderDao is Ownable {
     // proposal index
     Counters.Counter public proposalIndex;
 
-    // ERC20 LOP address
-    address public LOP;
-    // ERC20 vLOP address
-    address public vLOP;
+    // ERC20 _LOP address
+    address private _LOP;
+    // ERC20 _vLOP address
+    address private _vLOP;
     // minimum vote number
     uint256 public minVote;
 
@@ -26,14 +26,19 @@ contract ShareHolderDao is Ownable {
     mapping(address => mapping(uint256 => bool)) public isVoted;
 
     /**
-     * @param _LOP ERC20 LOP address
+     * @param _LOP ERC20 _LOP address
      **/
     event SetLOP(address indexed _LOP);
 
     /**
-     * @param _vLOP ERC20 vLOP address
+     * @param _vLOP ERC20 _vLOP address
      **/
     event SetVLOP(address indexed _vLOP);
+
+    /**
+     * @param _minVote min vote number
+     **/
+    event MinVoteUpdated(uint256 _minVote);
 
     /**
      * @param owner proposal owner
@@ -71,56 +76,60 @@ contract ShareHolderDao is Ownable {
 
     modifier checkTokenHolder() {
         require(
-            IERC20(LOP).balanceOf(msg.sender) > 0 ||
-                IERC20(vLOP).balanceOf(msg.sender) > 0,
-            "ShareHolderDao: You have not enough token for LOP or vLOP"
+            IERC20(_LOP).balanceOf(msg.sender) > 0 ||
+                IERC20(_vLOP).balanceOf(msg.sender) > 0,
+            "ShareHolderDao: You have not enough LOP or vLOP token"
         );
         _;
     }
 
-    constructor(address _LOP, address _vLOP) {
+    /**
+     * @param LOP_ _LOP ERC20 token address
+     * @param vLOP_ _vLOP ERC20 token address
+     **/
+    constructor(address LOP_, address vLOP_) {
         require(
-            _LOP != address(0),
+            LOP_ != address(0),
             "ShareHolderDao: LOP address hould not be the zero address"
         );
         require(
-            _vLOP != address(0),
+            vLOP_ != address(0),
             "ShareHolderDao: vLOP address hould not be the zero address"
         );
 
-        LOP = _LOP;
-        vLOP = _vLOP;
+        _LOP = LOP_;
+        _vLOP = vLOP_;
 
         emit SetLOP(_LOP);
         emit SetVLOP(_vLOP);
     }
 
     /**
-     * @param _LOP ERC20 LOP address
-     * @dev only owner can set LOP address
+     * @param LOP_ ERC20 _LOP address
+     * @dev only owner can set _LOP address
      **/
-    function setLOP(address _LOP) external onlyOwner {
+    function setLOP(address LOP_) external onlyOwner {
         require(
-            _LOP != address(0),
+            LOP_ != address(0),
             "ShareHolderDao: LOP address hould not be the zero address"
         );
 
-        LOP = _LOP;
+        _LOP = LOP_;
 
         emit SetLOP(_LOP);
     }
 
     /**
-     * @param _vLOP ERC20 vLOP address
-     * @dev only owner can set vLOP address
+     * @param vLOP_ ERC20 _vLOP address
+     * @dev only owner can set _vLOP address
      **/
-    function setVLOP(address _vLOP) external onlyOwner {
+    function setVLOP(address vLOP_) external onlyOwner {
         require(
-            _vLOP != address(0),
+            vLOP_ != address(0),
             "ShareHolderDao: vLOP address hould not be the zero address"
         );
 
-        vLOP = _vLOP;
+        _vLOP = vLOP_;
 
         emit SetLOP(_vLOP);
     }
@@ -214,12 +223,34 @@ contract ShareHolderDao is Ownable {
             "ShareHolderDao: You are not the owner of this proposal"
         );
 
-        if (_proposal.voteYes >= minVote) {
+        if (_proposal.voteYes > minVote) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
             emit Activated(proposalId);
         } else {
             _proposal.status = Types.ProposalStatus.CANCELLED;
             emit Cancelled(proposalId);
         }
+    }
+
+    /**
+     * @param _minVote min vote number
+     **/
+    function setMinVote(uint256 _minVote) external onlyOwner {
+        require(
+            _minVote > 0,
+            "ShareHolderDao: minVote should be greater than the zero"
+        );
+
+        minVote = _minVote;
+
+        emit MinVoteUpdated(minVote);
+    }
+
+    function getLOP() external view returns (address) {
+        return _LOP;
+    }
+
+    function getVLOP() external view returns (address) {
+        return _vLOP;
     }
 }
