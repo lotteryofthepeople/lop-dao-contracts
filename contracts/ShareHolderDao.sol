@@ -69,7 +69,7 @@ contract ShareHolderDao is Ownable {
      **/
     event Cancelled(uint256 proposalId);
 
-    modifier checkLOPOnwer() {
+    modifier checkTokenHolder() {
         require(
             IERC20(LOP).balanceOf(msg.sender) > 0 ||
                 IERC20(vLOP).balanceOf(msg.sender) > 0,
@@ -129,7 +129,7 @@ contract ShareHolderDao is Ownable {
      * @param _budget proposal budget
      * @dev create a new proposal
      **/
-    function createProposal(uint256 _budget) external checkLOPOnwer {
+    function createProposal(uint256 _budget) external checkTokenHolder {
         require(
             !isProposal[msg.sender],
             "ShareHolderDao: Your proposal is active now"
@@ -161,7 +161,7 @@ contract ShareHolderDao is Ownable {
     /**
      * @param proposalId proposal id
      **/
-    function voteYes(uint256 proposalId) external checkLOPOnwer {
+    function voteYes(uint256 proposalId) external checkTokenHolder {
         Types.ShareHolderProposal storage _proposal = proposals[proposalId];
 
         require(
@@ -182,7 +182,7 @@ contract ShareHolderDao is Ownable {
     /**
      * @param proposalId proposal id
      **/
-    function voteNo(uint256 proposalId) external checkLOPOnwer {
+    function voteNo(uint256 proposalId) external checkTokenHolder {
         Types.ShareHolderProposal storage _proposal = proposals[proposalId];
 
         require(
@@ -203,11 +203,15 @@ contract ShareHolderDao is Ownable {
     /**
      * @param proposalId proposal id
      **/
-    function execute(uint256 proposalId) external checkLOPOnwer {
+    function execute(uint256 proposalId) external checkTokenHolder {
         Types.ShareHolderProposal storage _proposal = proposals[proposalId];
         require(
             _proposal.status == Types.ProposalStatus.CREATED,
             "ShareHolderDao: Proposal status is not created"
+        );
+        require(
+            _proposal.owner == msg.sender,
+            "ShareHolderDao: You are not the owner of this proposal"
         );
 
         if (_proposal.voteYes >= minVote) {
