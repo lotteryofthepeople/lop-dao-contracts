@@ -1,20 +1,58 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./Basics/GroupDao.sol";
 import "./interfaces/IShareHolderDao.sol";
 import "./libs/types.sol";
 
-contract DevelopmentDao is Ownable {
-    // share holder dao address
-    address public shareHolderDao;
-
-    // product dao address
-    address public productDao;
+contract DevelopmentDao is GroupDao {
+    using Counters for Counters.Counter;
+    // proposal index
+    Counters.Counter public proposalIndex;
 
     // minimum vote number
     uint256 public minVote;
+
+    // proposal id => Product proposal
+    mapping(uint256 => Types.ProductProposal) public proposals;
+    // proposal owner => proposal status
+    mapping(address => Types.ProposalStatus) public proposalStatus;
+    // user address => proposal id => status
+    mapping(address => mapping(uint256 => bool)) public isVoted;
+
+    /**
+     * @param creator proposal creator
+     * @param proposalIndex proposal index
+     * @param metadata metadata URL
+     **/
+    event ProposalCreated(
+        address indexed creator,
+        uint256 proposalIndex,
+        string metadata
+    );
+
+    /**
+     * @param proposalId proposal id
+     * @param voter voter
+     **/
+    event VoteYes(uint256 proposalId, address indexed voter);
+
+    /**
+     * @param proposalId proposal id
+     * @param voter voter
+     **/
+    event VoteNo(uint256 proposalId, address indexed voter);
+
+    /**
+     * @param proposalId propoal id
+     * @param activator activator
+     **/
+    event Activated(uint256 proposalId, address indexed activator);
+
+    /**
+     * @param proposalId proposal id
+     * @param canceller canceller
+     **/
+    event Cancelled(uint256 proposalId, address indexed canceller);
 
     /**
      * @param _minVote min vote number
@@ -22,65 +60,124 @@ contract DevelopmentDao is Ownable {
     event MinVoteUpdated(uint256 _minVote);
 
     /**
-     * @param prev previous shareholder address
-     * @param next next shareholder address
-     * @dev emitted when dupdate share holder dao address by only owner
-     **/
-    event ShareHolderDaoUpdated(address indexed prev, address indexed next);
-
-    /**
-     * @param prev previous product dao address
-     * @param next next product dao address
-     * @dev emitted when dupdate product dao address by only owner
-     **/
-    event ProductDaoUpdated(address indexed prev, address indexed next);
-
-    /**
      * @param _shareHolderDao share holder dao address
-     * @param _productDao product dao address
-     * @param _minVote min vote number to execute
+     * @param _minVote min vote number
      **/
     constructor(
         address _shareHolderDao,
-        address _productDao,
         uint256 _minVote
-    ) {
+    ) GroupDao(_shareHolderDao) {
         require(
             _shareHolderDao != address(0),
-            "DevelopmentDao: share holder dao address should not be the zero address"
-        );
-        require(
-            _productDao != address(0),
-            "DevelopmentDao: product dao address should not be the zero address"
+            "ProductDao: share holder dao address should not be the zero address"
         );
         require(
             _minVote > 0,
-            "DevelopmentDao: min vote should be greater than the zero"
+            "ProductDao: min vote should be greater than the zero"
         );
 
         shareHolderDao = _shareHolderDao;
-        productDao = _productDao;
         minVote = _minVote;
 
         emit ShareHolderDaoUpdated(address(0), shareHolderDao);
-        emit ProductDaoUpdated(address(0), productDao);
         emit MinVoteUpdated(minVote);
     }
 
     /**
-     * @param _shareHolderDao new shoare holder dao address
+     * @param _metadata metadata URL
      **/
-    function setShareHolderDao(address _shareHolderDao) external onlyOwner {
+    function createProposal(
+        string calldata _metadata
+    ) external checkTokenHolder {
         require(
-            _shareHolderDao != address(0),
-            "DevelopmentDao: share holder dao address should not be the zero address"
+            bytes(_metadata).length > 0,
+            "ProdcutDao: metadata should not be empty string"
+        );
+        require(
+            proposalStatus[msg.sender] == Types.ProposalStatus.NONE,
+            "ProductDao: You already created a new proposal"
         );
 
-        address _prevShareHolderDao = shareHolderDao;
+        uint256 _proposalIndex = proposalIndex.current();
 
-        shareHolderDao = _shareHolderDao;
+        Types.ProductProposal memory _proposal = Types.ProductProposal({
+            metadata: _metadata,
+            status: Types.ProposalStatus.CREATED,
+            owner: msg.sender,
+            voteYes: 0,
+            voteNo: 0
+        });
 
-        emit ShareHolderDaoUpdated(_prevShareHolderDao, _shareHolderDao);
+        proposals[_proposalIndex] = _proposal;
+        proposalStatus[msg.sender] = Types.ProposalStatus.CREATED;
+
+        proposalIndex.increment();
+
+        emit ProposalCreated(msg.sender, _proposalIndex, _metadata);
+    }
+
+    /**
+     * @param proposalId proposal id
+     **/
+    function voteYes(uint256 proposalId) external checkTokenHolder {
+        Types.ProductProposal storage _proposal = proposals[proposalId];
+
+        require(
+            !isVoted[msg.sender][proposalId],
+            "ProductDao: proposal is already voted"
+        );
+        require(
+            _proposal.status == Types.ProposalStatus.CREATED,
+            "ProductDao: proposal is not created status"
+        );
+
+        _proposal.voteYes++;
+
+        emit VoteYes(proposalId, msg.sender);
+    }
+
+    /**
+     * @param proposalId proposal id
+     **/
+    function voteNo(uint256 proposalId) external checkTokenHolder {
+        Types.ProductProposal storage _proposal = proposals[proposalId];
+
+        require(
+            !isVoted[msg.sender][proposalId],
+            "ProductDao: proposal is already voted"
+        );
+        require(
+            _proposal.status == Types.ProposalStatus.CREATED,
+            "ProductDao: proposal is not created status"
+        );
+
+        _proposal.voteNo++;
+
+        emit VoteNo(proposalId, msg.sender);
+    }
+
+    /**
+     * @param proposalId proposal id
+     * @dev only proposal creator can execute one's proposal
+     **/
+    function execute(uint256 proposalId) external checkTokenHolder {
+        Types.ProductProposal storage _proposal = proposals[proposalId];
+        require(
+            _proposal.status == Types.ProposalStatus.CREATED,
+            "ProductDao: Proposal status is not created"
+        );
+        require(
+            _proposal.owner == msg.sender,
+            "ShareHolderDao: You are not the owner of this proposal"
+        );
+
+        if (_proposal.voteYes >= minVote) {
+            _proposal.status = Types.ProposalStatus.ACTIVE;
+            emit Activated(proposalId, msg.sender);
+        } else {
+            _proposal.status = Types.ProposalStatus.CANCELLED;
+            emit Cancelled(proposalId, msg.sender);
+        }
     }
 
     /**
@@ -89,25 +186,11 @@ contract DevelopmentDao is Ownable {
     function setMinVote(uint256 _minVote) external onlyOwner {
         require(
             _minVote > 0,
-            "DevelopmentDao: minVote should be greater than the zero"
+            "ProdcutDao: minVote should be greater than the zero"
         );
 
         minVote = _minVote;
 
         emit MinVoteUpdated(minVote);
-    }
-
-    /**
-     * @dev get LOP address from ShareHolderDao
-     **/
-    function getLOP() public returns (address) {
-        return IShareHolderDao(shareHolderDao).getLOP();
-    }
-
-    /**
-     * @dev get vLOP address from ShareHolderDao
-     **/
-    function getVLOP() public returns (address) {
-        return IShareHolderDao(shareHolderDao).getVLOP();
     }
 }
