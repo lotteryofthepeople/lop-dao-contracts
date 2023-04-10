@@ -16,7 +16,7 @@ library Types {
         CANCELLED
     }
 
-    enum ProductMemberStatus {
+    enum MemberStatus {
         NONE,
         JOINNING,
         JOINED
@@ -30,15 +30,15 @@ library Types {
         uint256 voteNo;
     }
 
-    struct ProductJoinRequest {
+    struct JoinRequest {
         JoinRequestStatus status;
         address owner;
     }
 
-    struct ProductMember {
+    struct Member {
         address owner;
         uint256 requestId;
-        ProductMemberStatus status;
+        MemberStatus status;
     }
 
     struct ProductProposal {

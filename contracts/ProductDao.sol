@@ -20,10 +20,10 @@ contract ProductDao is Ownable {
     // minimum vote number
     uint256 public minVote;
 
-    // user address => product group member status
-    mapping(address => Types.ProductMember) public productMembers;
+    // user address => group member status
+    mapping(address => Types.Member) public members;
     // join request id => join request
-    mapping(uint256 => Types.ProductJoinRequest) public joinRequests;
+    mapping(uint256 => Types.JoinRequest) public joinRequests;
     // proposal id => Product proposal
     mapping(uint256 => Types.ProductProposal) public proposals;
     // proposal owner => proposal status
@@ -48,12 +48,12 @@ contract ProductDao is Ownable {
 
     /**
      * @param _user user address
-     * @param _status product member status
+     * @param _status member status
      * @dev emitted when update member status by only owner
      **/
     event MemberStatusUpdated(
         address indexed _user,
-        Types.ProductMemberStatus _status
+        Types.MemberStatus _status
     );
 
     /**
@@ -106,10 +106,10 @@ contract ProductDao is Ownable {
     /**
      * @param _user user address
      **/
-    modifier checkProductMember(address _user) {
+    modifier checkMember(address _user) {
         require(
-            isProductMember(_user),
-            "ProductDao: Not member of product group"
+            isMember(_user),
+            "Not member of group"
         );
         _;
     }
@@ -149,12 +149,12 @@ contract ProductDao is Ownable {
      **/
     function requestToJoin() external {
         require(
-            productMembers[msg.sender].status == Types.ProductMemberStatus.NONE,
+            members[msg.sender].status == Types.MemberStatus.NONE,
             "ProductDao: You already sent join request or a member of product group"
         );
 
-        Types.ProductJoinRequest memory _joinRequest = Types
-            .ProductJoinRequest({
+        Types.JoinRequest memory _joinRequest = Types
+            .JoinRequest({
                 status: Types.JoinRequestStatus.CREATED,
                 owner: msg.sender
             });
@@ -162,13 +162,13 @@ contract ProductDao is Ownable {
         uint256 _joinRequestIndex = joinRequestIndex.current();
         joinRequests[_joinRequestIndex] = _joinRequest;
 
-        Types.ProductMember memory _productMember = Types.ProductMember({
+        Types.Member memory _productMember = Types.Member({
             owner: msg.sender,
-            status: Types.ProductMemberStatus.JOINNING,
+            status: Types.MemberStatus.JOINNING,
             requestId: _joinRequestIndex
         });
 
-        productMembers[msg.sender] = _productMember;
+        members[msg.sender] = _productMember;
 
         joinRequestIndex.increment();
 
@@ -181,12 +181,12 @@ contract ProductDao is Ownable {
      **/
     function acceptJoinRequest(
         uint256 _joinRequestIndex
-    ) external checkProductMember(msg.sender) {
-        Types.ProductJoinRequest storage _joinRequest = joinRequests[
+    ) external checkMember(msg.sender) {
+        Types.JoinRequest storage _joinRequest = joinRequests[
             _joinRequestIndex
         ];
 
-        Types.ProductMember storage _productMember = productMembers[
+        Types.Member storage _productMember = members[
             _joinRequest.owner
         ];
 
@@ -195,12 +195,12 @@ contract ProductDao is Ownable {
             "ProductDao: the request is not created"
         );
         require(
-            _productMember.status == Types.ProductMemberStatus.JOINNING,
+            _productMember.status == Types.MemberStatus.JOINNING,
             "ProductDao: product member status is not joinning"
         );
 
         _joinRequest.status = Types.JoinRequestStatus.PASSED;
-        _productMember.status == Types.ProductMemberStatus.JOINED;
+        _productMember.status == Types.MemberStatus.JOINED;
 
         emit AeeptedJoinRequest(_joinRequestIndex, msg.sender);
     }
@@ -326,14 +326,14 @@ contract ProductDao is Ownable {
      **/
     function setMemberStatus(
         address _user,
-        Types.ProductMemberStatus _status
+        Types.MemberStatus _status
     ) external onlyOwner {
         require(
             _user != address(0),
             "ProductDao: user should not be the zero address"
         );
 
-        productMembers[_user].status = _status;
+        members[_user].status = _status;
 
         emit MemberStatusUpdated(_user, _status);
     }
@@ -345,7 +345,7 @@ contract ProductDao is Ownable {
     function setMinVote(uint256 _minVote) external onlyOwner {
         require(
             _minVote > 0,
-            "ShareHolderDao: minVote should be greater than the zero"
+            "ProdcutDao: minVote should be greater than the zero"
         );
 
         minVote = _minVote;
@@ -371,9 +371,9 @@ contract ProductDao is Ownable {
      * @param _user user address
      * @dev check is the member of product gruop
      **/
-    function isProductMember(address _user) public view returns (bool) {
+    function isMember(address _user) public view returns (bool) {
         return
-            productMembers[_user].status == Types.ProductMemberStatus.JOINED ||
+            members[_user].status == Types.MemberStatus.JOINED ||
             owner() == _user;
     }
 }
