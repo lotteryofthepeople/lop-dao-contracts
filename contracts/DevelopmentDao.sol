@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 import "./Basics/GroupDao.sol";
 import "./interfaces/IShareHolderDao.sol";
+import "./interfaces/IProductDao.sol";
 import "./libs/types.sol";
 
 contract DevelopmentDao is GroupDao {
@@ -9,11 +10,14 @@ contract DevelopmentDao is GroupDao {
     // proposal index
     Counters.Counter public proposalIndex;
 
+    // product dao address
+    address public productDao;
+
     // minimum vote number
     uint256 public minVote;
 
-    // proposal id => Product proposal
-    mapping(uint256 => Types.ProductProposal) public proposals;
+    // proposal id => DevelopmentProposal
+    mapping(uint256 => Types.DevelopmentProposal) public proposals;
     // proposal owner => proposal status
     mapping(address => Types.ProposalStatus) public proposalStatus;
     // user address => proposal id => status
@@ -23,11 +27,13 @@ contract DevelopmentDao is GroupDao {
      * @param creator proposal creator
      * @param proposalIndex proposal index
      * @param metadata metadata URL
+     * @param _productId product id
      **/
     event ProposalCreated(
         address indexed creator,
         uint256 proposalIndex,
-        string metadata
+        string metadata,
+        uint256 _productId
     );
 
     /**
@@ -60,34 +66,47 @@ contract DevelopmentDao is GroupDao {
     event MinVoteUpdated(uint256 _minVote);
 
     /**
+     * @param prev previous product address
+     * @param next next product address
+     * @dev emitted when dupdate product dao address by only owner
+     **/
+    event ProductDaoUpdated(address indexed prev, address indexed next);
+
+    /**
      * @param _shareHolderDao share holder dao address
+     * @param _productDao product dao address
      * @param _minVote min vote number
      **/
     constructor(
         address _shareHolderDao,
+        address _productDao,
         uint256 _minVote
     ) GroupDao(_shareHolderDao) {
         require(
-            _shareHolderDao != address(0),
-            "ProductDao: share holder dao address should not be the zero address"
+            _productDao != address(0),
+            "DevelopmentDao: share holder dao address should not be the zero address"
         );
         require(
             _minVote > 0,
-            "ProductDao: min vote should be greater than the zero"
+            "DevelopmentDao: min vote should be greater than the zero"
         );
 
-        shareHolderDao = _shareHolderDao;
+        productDao = _productDao;
         minVote = _minVote;
 
-        emit ShareHolderDaoUpdated(address(0), shareHolderDao);
         emit MinVoteUpdated(minVote);
+        emit ProductDaoUpdated(address(0), productDao);
     }
 
     /**
      * @param _metadata metadata URL
+     * @param _productId proposal id
+     * @param _budget proposal budget
      **/
     function createProposal(
-        string calldata _metadata
+        string calldata _metadata,
+        uint256 _productId,
+        uint256 _budget
     ) external checkTokenHolder {
         require(
             bytes(_metadata).length > 0,
@@ -95,17 +114,25 @@ contract DevelopmentDao is GroupDao {
         );
         require(
             proposalStatus[msg.sender] == Types.ProposalStatus.NONE,
-            "ProductDao: You already created a new proposal"
+            "DevelopmentDao: You already created a new proposal"
+        );
+        Types.ProductProposal memory _prposal = IProductDao(productDao)
+            .getProposalById(_productId);
+        require(
+            _prposal.status == Types.ProposalStatus.ACTIVE,
+            "DevelopmentDao: proposal is not active now"
         );
 
         uint256 _proposalIndex = proposalIndex.current();
 
-        Types.ProductProposal memory _proposal = Types.ProductProposal({
+        Types.DevelopmentProposal memory _proposal = Types.DevelopmentProposal({
             metadata: _metadata,
             status: Types.ProposalStatus.CREATED,
             owner: msg.sender,
             voteYes: 0,
-            voteNo: 0
+            voteNo: 0,
+            productId: _productId,
+            budget: _budget
         });
 
         proposals[_proposalIndex] = _proposal;
@@ -113,70 +140,79 @@ contract DevelopmentDao is GroupDao {
 
         proposalIndex.increment();
 
-        emit ProposalCreated(msg.sender, _proposalIndex, _metadata);
+        emit ProposalCreated(msg.sender, _proposalIndex, _metadata, _productId);
     }
 
     /**
-     * @param proposalId proposal id
+     * @param _proposalId proposal id
      **/
-    function voteYes(uint256 proposalId) external checkTokenHolder {
-        Types.ProductProposal storage _proposal = proposals[proposalId];
+    function voteYes(uint256 _proposalId) external checkTokenHolder {
+        Types.DevelopmentProposal storage _proposal = proposals[_proposalId];
 
         require(
-            !isVoted[msg.sender][proposalId],
-            "ProductDao: proposal is already voted"
+            !isVoted[msg.sender][_proposalId],
+            "DevelopmentDao: proposal is already voted"
         );
         require(
             _proposal.status == Types.ProposalStatus.CREATED,
-            "ProductDao: proposal is not created status"
+            "DevelopmentDao: proposal is not created status"
         );
 
         _proposal.voteYes++;
 
-        emit VoteYes(proposalId, msg.sender);
+        emit VoteYes(_proposalId, msg.sender);
     }
 
     /**
-     * @param proposalId proposal id
+     * @param _proposalId proposal id
      **/
-    function voteNo(uint256 proposalId) external checkTokenHolder {
-        Types.ProductProposal storage _proposal = proposals[proposalId];
+    function voteNo(uint256 _proposalId) external checkTokenHolder {
+        Types.DevelopmentProposal storage _proposal = proposals[_proposalId];
 
         require(
-            !isVoted[msg.sender][proposalId],
-            "ProductDao: proposal is already voted"
+            !isVoted[msg.sender][_proposalId],
+            "DevelopmentDao: proposal is already voted"
         );
         require(
             _proposal.status == Types.ProposalStatus.CREATED,
-            "ProductDao: proposal is not created status"
+            "DevelopmentDao: proposal is not created status"
         );
 
         _proposal.voteNo++;
 
-        emit VoteNo(proposalId, msg.sender);
+        emit VoteNo(_proposalId, msg.sender);
     }
 
     /**
-     * @param proposalId proposal id
+     * @param _proposalId proposal id
      * @dev only proposal creator can execute one's proposal
      **/
-    function execute(uint256 proposalId) external checkTokenHolder {
-        Types.ProductProposal storage _proposal = proposals[proposalId];
+    function execute(uint256 _proposalId) external checkTokenHolder {
+        Types.DevelopmentProposal storage _proposal = proposals[_proposalId];
         require(
             _proposal.status == Types.ProposalStatus.CREATED,
-            "ProductDao: Proposal status is not created"
+            "DevelopmentDao: Proposal status is not created"
         );
         require(
             _proposal.owner == msg.sender,
-            "ShareHolderDao: You are not the owner of this proposal"
+            "DevelopmentDao: You are not the owner of this proposal"
+        );
+
+        Types.ShareHolderInfo memory _shareHolderInfo = IShareHolderDao(
+            shareHolderDao
+        ).getShareHolderInfoByUser(msg.sender);
+
+        require(
+            _proposal.budget < _shareHolderInfo.budget,
+            "DevelopmentDao: proposal budget should be less than shareholder budget"
         );
 
         if (_proposal.voteYes >= minVote) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
-            emit Activated(proposalId, msg.sender);
+            emit Activated(_proposalId, msg.sender);
         } else {
             _proposal.status = Types.ProposalStatus.CANCELLED;
-            emit Cancelled(proposalId, msg.sender);
+            emit Cancelled(_proposalId, msg.sender);
         }
     }
 

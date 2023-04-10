@@ -13,7 +13,7 @@ contract ProductDao is GroupDao {
     uint256 public minVote;
 
     // proposal id => Product proposal
-    mapping(uint256 => Types.ProductProposal) public proposals;
+    mapping(uint256 => Types.ProductProposal) public _proposals;
     // proposal owner => proposal status
     mapping(address => Types.ProposalStatus) public proposalStatus;
     // user address => proposal id => status
@@ -108,7 +108,7 @@ contract ProductDao is GroupDao {
             voteNo: 0
         });
 
-        proposals[_proposalIndex] = _proposal;
+        _proposals[_proposalIndex] = _proposal;
         proposalStatus[msg.sender] = Types.ProposalStatus.CREATED;
 
         proposalIndex.increment();
@@ -120,7 +120,7 @@ contract ProductDao is GroupDao {
      * @param proposalId proposal id
      **/
     function voteYes(uint256 proposalId) external checkTokenHolder {
-        Types.ProductProposal storage _proposal = proposals[proposalId];
+        Types.ProductProposal storage _proposal = _proposals[proposalId];
 
         require(
             !isVoted[msg.sender][proposalId],
@@ -140,7 +140,7 @@ contract ProductDao is GroupDao {
      * @param proposalId proposal id
      **/
     function voteNo(uint256 proposalId) external checkTokenHolder {
-        Types.ProductProposal storage _proposal = proposals[proposalId];
+        Types.ProductProposal storage _proposal = _proposals[proposalId];
 
         require(
             !isVoted[msg.sender][proposalId],
@@ -161,14 +161,14 @@ contract ProductDao is GroupDao {
      * @dev only proposal creator can execute one's proposal
      **/
     function execute(uint256 proposalId) external checkTokenHolder {
-        Types.ProductProposal storage _proposal = proposals[proposalId];
+        Types.ProductProposal storage _proposal = _proposals[proposalId];
         require(
             _proposal.status == Types.ProposalStatus.CREATED,
             "ProductDao: Proposal status is not created"
         );
         require(
             _proposal.owner == msg.sender,
-            "ShareHolderDao: You are not the owner of this proposal"
+            "ProductDao: You are not the owner of this proposal"
         );
 
         if (_proposal.voteYes >= minVote) {
@@ -192,5 +192,9 @@ contract ProductDao is GroupDao {
         minVote = _minVote;
 
         emit MinVoteUpdated(minVote);
+    }
+
+    function getProposalById(uint256 _proposalId) external view {
+        _proposals[_proposalId];
     }
 }

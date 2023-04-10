@@ -21,7 +21,7 @@ contract ShareHolderDao is Ownable {
     // proposal id => ShareHolderProposal
     mapping(uint256 => Types.ShareHolderProposal) public proposals;
     // user => bool status
-    mapping(address => bool) public isProposal;
+    mapping(address => Types.ShareHolderInfo) public _shareHolderInfo;
     // user address => proposal id => status
     mapping(address => mapping(uint256 => bool)) public isVoted;
 
@@ -110,7 +110,7 @@ contract ShareHolderDao is Ownable {
      **/
     function createProposal(uint256 _budget) external checkTokenHolder {
         require(
-            !isProposal[msg.sender],
+            !_shareHolderInfo[msg.sender].created,
             "ShareHolderDao: Your proposal is active now"
         );
         require(
@@ -130,7 +130,10 @@ contract ShareHolderDao is Ownable {
 
         proposals[_proposalIndex] = _proposal;
 
-        isProposal[msg.sender] = true;
+        _shareHolderInfo[msg.sender] = Types.ShareHolderInfo({
+            created: true,
+            budget: _budget
+        });
 
         proposalIndex.increment();
 
@@ -252,5 +255,11 @@ contract ShareHolderDao is Ownable {
 
     function getVLOP() external view returns (address) {
         return _vLOP;
+    }
+
+    function getShareHolderInfoByUser(
+        address _user
+    ) external view returns (Types.ShareHolderInfo memory _info) {
+        return _shareHolderInfo[_user];
     }
 }
