@@ -15,7 +15,7 @@ contract ProductDao is Ownable {
     Counters.Counter public proposalIndex;
 
     // share holder dao address
-    address public shoareHolderDao;
+    address public shareHolderDao;
 
     // minimum vote number
     uint256 public minVote;
@@ -28,6 +28,8 @@ contract ProductDao is Ownable {
     mapping(uint256 => Types.ProductProposal) public proposals;
     // proposal owner => proposal status
     mapping(address => Types.ProposalStatus) public proposalStatus;
+    // user address => proposal id => status
+    mapping(address => mapping(uint256 => bool)) public isVoted;
 
     /**
      * @param requestId join request id
@@ -37,12 +39,17 @@ contract ProductDao is Ownable {
 
     /**
      * @param _joinRequestIndex join request index
+     * @param acceptor acceptor
      **/
-    event AeeptedJoinRequest(uint256 _joinRequestIndex);
+    event AeeptedJoinRequest(
+        uint256 _joinRequestIndex,
+        address indexed acceptor
+    );
 
     /**
      * @param _user user address
      * @param _status product member status
+     * @dev emitted when update member status by only owner
      **/
     event MemberStatusUpdated(
         address indexed _user,
@@ -52,6 +59,7 @@ contract ProductDao is Ownable {
     /**
      * @param prev previous shareholder address
      * @param next next shareholder address
+     * @dev emitted when dupdate share holder dao address by only owner
      **/
     event ShareHolderDaoUpdated(address indexed prev, address indexed next);
 
@@ -80,13 +88,15 @@ contract ProductDao is Ownable {
 
     /**
      * @param proposalId propoal id
+     * @param activator activator
      **/
-    event Activated(uint256 proposalId);
+    event Activated(uint256 proposalId, address indexed activator);
 
     /**
      * @param proposalId proposal id
+     * @param canceller canceller
      **/
-    event Cancelled(uint256 proposalId);
+    event Cancelled(uint256 proposalId, address indexed canceller);
 
     /**
      * @param _minVote min vote number
@@ -118,10 +128,19 @@ contract ProductDao is Ownable {
      * @param _minVote min vote number
      **/
     constructor(address _shareHolderDao, uint256 _minVote) {
-        shoareHolderDao = _shareHolderDao;
+        require(
+            _shareHolderDao != address(0),
+            "ProductDao: share holder dao address should not be the zero address"
+        );
+        require(
+            _minVote > 0,
+            "ProductDao: min vote should be greater than the zero"
+        );
+
+        shareHolderDao = _shareHolderDao;
         minVote = _minVote;
 
-        emit ShareHolderDaoUpdated(address(0), shoareHolderDao);
+        emit ShareHolderDaoUpdated(address(0), shareHolderDao);
         emit MinVoteUpdated(minVote);
     }
 
@@ -183,41 +202,7 @@ contract ProductDao is Ownable {
         _joinRequest.status = Types.JoinRequestStatus.PASSED;
         _productMember.status == Types.ProductMemberStatus.JOINED;
 
-        emit AeeptedJoinRequest(_joinRequestIndex);
-    }
-
-    /**
-     * @param _user user address
-     * @param _status product member status
-     **/
-    function setMemberStatus(
-        address _user,
-        Types.ProductMemberStatus _status
-    ) external onlyOwner {
-        require(
-            _user != address(0),
-            "ProductDao: user should not be the zero address"
-        );
-
-        productMembers[_user].status = _status;
-
-        emit MemberStatusUpdated(_user, _status);
-    }
-
-    /**
-     * @param _shareHolderDao new shoare holder dao address
-     **/
-    function setShareHolderDao(address _shareHolderDao) external onlyOwner {
-        require(
-            _shareHolderDao != address(0),
-            "ProductDao: share holder dao address should not be the zero address"
-        );
-
-        address _prevShareHolderDao = shoareHolderDao;
-
-        shoareHolderDao = _shareHolderDao;
-
-        emit ShareHolderDaoUpdated(_prevShareHolderDao, _shareHolderDao);
+        emit AeeptedJoinRequest(_joinRequestIndex, msg.sender);
     }
 
     /**
@@ -226,8 +211,6 @@ contract ProductDao is Ownable {
     function createProposal(
         string calldata _metadata
     ) external checkTokenHolder {
-        uint256 _proposalIndex = proposalIndex.current();
-
         require(
             bytes(_metadata).length > 0,
             "ProdcutDao: metadata should not be empty string"
@@ -236,6 +219,8 @@ contract ProductDao is Ownable {
             proposalStatus[msg.sender] == Types.ProposalStatus.NONE,
             "ProductDao: You already created a new proposal"
         );
+
+        uint256 _proposalIndex = proposalIndex.current();
 
         Types.ProductProposal memory _proposal = Types.ProductProposal({
             metadata: _metadata,
@@ -258,6 +243,11 @@ contract ProductDao is Ownable {
      **/
     function voteYes(uint256 proposalId) external checkTokenHolder {
         Types.ProductProposal storage _proposal = proposals[proposalId];
+
+        require(
+            !isVoted[msg.sender][proposalId],
+            "ProductDao: proposal is already voted"
+        );
         require(
             _proposal.status == Types.ProposalStatus.CREATED,
             "ProductDao: proposal is not created status"
@@ -273,6 +263,11 @@ contract ProductDao is Ownable {
      **/
     function voteNo(uint256 proposalId) external checkTokenHolder {
         Types.ProductProposal storage _proposal = proposals[proposalId];
+
+        require(
+            !isVoted[msg.sender][proposalId],
+            "ProductDao: proposal is already voted"
+        );
         require(
             _proposal.status == Types.ProposalStatus.CREATED,
             "ProductDao: proposal is not created status"
@@ -285,6 +280,7 @@ contract ProductDao is Ownable {
 
     /**
      * @param proposalId proposal id
+     * @dev only proposal creator can execute one's proposal
      **/
     function execute(uint256 proposalId) external checkTokenHolder {
         Types.ProductProposal storage _proposal = proposals[proposalId];
@@ -297,14 +293,51 @@ contract ProductDao is Ownable {
             "ShareHolderDao: You are not the owner of this proposal"
         );
 
-        if (_proposal.voteYes > minVote) {
+        if (_proposal.voteYes >= minVote) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
-            emit Activated(proposalId);
+            emit Activated(proposalId, msg.sender);
         } else {
             _proposal.status = Types.ProposalStatus.CANCELLED;
-            emit Cancelled(proposalId);
+            emit Cancelled(proposalId, msg.sender);
         }
     }
+
+    /**
+     * @param _shareHolderDao new shoare holder dao address
+     **/
+    function setShareHolderDao(address _shareHolderDao) external onlyOwner {
+        require(
+            _shareHolderDao != address(0),
+            "ProductDao: share holder dao address should not be the zero address"
+        );
+
+        address _prevShareHolderDao = shareHolderDao;
+
+        shareHolderDao = _shareHolderDao;
+
+        emit ShareHolderDaoUpdated(_prevShareHolderDao, _shareHolderDao);
+    }
+
+    /**
+     * @param _user user address
+     * @param _status product member status
+     * @dev set member status by only owner
+     * @dev contract owner can disable, enable, block user for product group
+     **/
+    function setMemberStatus(
+        address _user,
+        Types.ProductMemberStatus _status
+    ) external onlyOwner {
+        require(
+            _user != address(0),
+            "ProductDao: user should not be the zero address"
+        );
+
+        productMembers[_user].status = _status;
+
+        emit MemberStatusUpdated(_user, _status);
+    }
+
 
     /**
      * @param _minVote min vote number
@@ -324,14 +357,14 @@ contract ProductDao is Ownable {
      * @dev get LOP address from ShareHolderDao
      **/
     function getLOP() public returns (address) {
-        return IShareHolderDao(shoareHolderDao).getLOP();
+        return IShareHolderDao(shareHolderDao).getLOP();
     }
 
     /**
      * @dev get vLOP address from ShareHolderDao
      **/
     function getVLOP() public returns (address) {
-        return IShareHolderDao(shoareHolderDao).getVLOP();
+        return IShareHolderDao(shareHolderDao).getVLOP();
     }
 
     /**

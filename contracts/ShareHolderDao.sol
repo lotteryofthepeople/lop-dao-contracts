@@ -223,7 +223,7 @@ contract ShareHolderDao is Ownable {
             "ShareHolderDao: You are not the owner of this proposal"
         );
 
-        if (_proposal.voteYes > minVote) {
+        if (_proposal.voteYes >= minVote) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
             emit Activated(proposalId);
         } else {
