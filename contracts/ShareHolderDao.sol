@@ -105,36 +105,6 @@ contract ShareHolderDao is Ownable {
     }
 
     /**
-     * @param LOP_ ERC20 _LOP address
-     * @dev only owner can set _LOP address
-     **/
-    function setLOP(address LOP_) external onlyOwner {
-        require(
-            LOP_ != address(0),
-            "ShareHolderDao: LOP address hould not be the zero address"
-        );
-
-        _LOP = LOP_;
-
-        emit SetLOP(_LOP);
-    }
-
-    /**
-     * @param vLOP_ ERC20 _vLOP address
-     * @dev only owner can set _vLOP address
-     **/
-    function setVLOP(address vLOP_) external onlyOwner {
-        require(
-            vLOP_ != address(0),
-            "ShareHolderDao: vLOP address hould not be the zero address"
-        );
-
-        _vLOP = vLOP_;
-
-        emit SetLOP(_vLOP);
-    }
-
-    /**
      * @param _budget proposal budget
      * @dev create a new proposal
      **/
@@ -244,6 +214,36 @@ contract ShareHolderDao is Ownable {
         minVote = _minVote;
 
         emit MinVoteUpdated(minVote);
+    }
+
+    /**
+     * @param LOP_ ERC20 _LOP address
+     * @dev only owner can set _LOP address
+     **/
+    function setLOP(address LOP_) external onlyOwner {
+        require(
+            LOP_ != address(0),
+            "ShareHolderDao: LOP address hould not be the zero address"
+        );
+
+        _LOP = LOP_;
+
+        emit SetLOP(_LOP);
+    }
+
+    /**
+     * @param vLOP_ ERC20 _vLOP address
+     * @dev only owner can set _vLOP address
+     **/
+    function setVLOP(address vLOP_) external onlyOwner {
+        require(
+            vLOP_ != address(0),
+            "ShareHolderDao: vLOP address hould not be the zero address"
+        );
+
+        _vLOP = vLOP_;
+
+        emit SetLOP(_vLOP);
     }
 
     function getLOP() external view returns (address) {
