@@ -222,7 +222,7 @@ contract DevelopmentDao is GroupDao {
     function setMinVote(uint256 _minVote) external onlyOwner {
         require(
             _minVote > 0,
-            "ProdcutDao: minVote should be greater than the zero"
+            "DevelopmentDao: minVote should be greater than the zero"
         );
 
         minVote = _minVote;
