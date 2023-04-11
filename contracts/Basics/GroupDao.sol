@@ -53,6 +53,23 @@ contract GroupDao is Ownable {
     event ShareHolderDaoUpdated(address indexed prev, address indexed next);
 
     /**
+     * @param toAddress to address
+     * @param amount withdraw amount
+     **/
+    event WithdrawNative(address indexed toAddress, uint256 amount);
+
+    /**
+     * @param token token address
+     * @param toAddress destination address
+     * @param amount withdraw amount
+     **/
+    event Withdraw(
+        address indexed token,
+        address indexed toAddress,
+        uint256 amount
+    );
+
+    /**
      * @param _user user address
      **/
     modifier checkMember(address _user) {
@@ -175,6 +192,60 @@ contract GroupDao is Ownable {
         members[_user].status = _status;
 
         emit MemberStatusUpdated(_user, _status);
+    }
+
+    /**
+     * @param  toAddress address to receive fee
+     * @param amount withdraw native token amount
+     **/
+    function withdrawNative(
+        address payable toAddress,
+        uint256 amount
+    ) external onlyOwner {
+        require(
+            toAddress != address(0),
+            "GroupDao: The zero address should not be the fee address"
+        );
+
+        require(amount > 0, "GroupDao: amount should be greater than the zero");
+
+        uint256 balance = address(this).balance;
+
+        require(amount <= balance, "GroupDao: No balance to withdraw");
+
+        (bool success, ) = toAddress.call{value: balance}("");
+        require(success, "GroupDao: Withdraw failed");
+
+        emit WithdrawNative(toAddress, balance);
+    }
+
+    /**
+     * @param token token address
+     * @param toAddress to address
+     * @param amount withdraw amount
+     **/
+    function withdraw(
+        address token,
+        address payable toAddress,
+        uint256 amount
+    ) external onlyOwner {
+        require(
+            token != address(0),
+            "GroupDao: token address should not be the zero address"
+        );
+        require(
+            toAddress != address(0),
+            "GroupDao: to address should not be the zero address"
+        );
+        require(amount > 0, "GroupDao: amount should be greater than the zero");
+
+        uint256 balance = IERC20(token).balanceOf(address(this));
+
+        require(amount <= balance, "GroupDao: No balance to withdraw");
+
+        IERC20(token).transfer(toAddress, amount);
+
+        emit Withdraw(token, toAddress, amount);
     }
 
     /**
