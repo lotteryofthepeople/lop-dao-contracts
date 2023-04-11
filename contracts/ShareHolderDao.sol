@@ -3,9 +3,11 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./libs/types.sol";
 
 contract ShareHolderDao is Ownable {
+    using SafeERC20 for IERC20;
     using Counters for Counters.Counter;
 
     // proposal index
@@ -321,7 +323,7 @@ contract ShareHolderDao is Ownable {
 
         require(amount <= balance, "ShareHolderDao: No balance to withdraw");
 
-        IERC20(token).transfer(toAddress, amount);
+        IERC20(token).safeTransfer(toAddress, amount);
 
         emit Withdraw(token, toAddress, amount);
     }
