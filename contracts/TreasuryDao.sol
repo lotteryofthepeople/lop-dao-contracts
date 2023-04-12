@@ -23,6 +23,7 @@ contract TreasuryDao is Ownable {
      * @param amount swap amount
      * */
     event SwappedLopToUsdc(address indexed creator, uint256 amount);
+
     /**
      * @param creator swap creator
      * @param amount swap amount
@@ -184,7 +185,9 @@ contract TreasuryDao is Ownable {
             IERC20(USDC).allowance(msg.sender, address(this)) >= amount,
             "TreasuryDao: Approve allownance error for USDC"
         );
+
         address _LOP = IShareHolderDao(shareHolderDao).getLOP();
+        
         require(
             IERC20(_LOP).balanceOf(address(this)) >= amount,
             "TreasuryDao: LOP balance error"
@@ -201,6 +204,8 @@ contract TreasuryDao is Ownable {
      * @param status a new swap status
      **/
     function setSwapStatus(bool status) external onlyOwner {
+        require(swapStatus != status, "TresuryDao: dupulcated status");
+
         swapStatus = status;
 
         emit SwapStatusUpdated(swapStatus);

@@ -110,7 +110,7 @@ contract DevelopmentDao is GroupDao {
     ) external checkTokenHolder {
         require(
             bytes(_metadata).length > 0,
-            "ProdcutDao: metadata should not be empty string"
+            "DevelopmentDao: metadata should not be empty string"
         );
         require(
             proposalStatus[msg.sender] == Types.ProposalStatus.NONE,
