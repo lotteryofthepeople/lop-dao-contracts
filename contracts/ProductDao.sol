@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 import "./Basics/GroupDao.sol";
-import "./interfaces/IShareHolderDao.sol";
-import "./libs/types.sol";
 
 contract ProductDao is GroupDao {
     using Counters for Counters.Counter;
@@ -116,6 +114,7 @@ contract ProductDao is GroupDao {
         );
 
         _proposal.voteYes++;
+        isVoted[msg.sender][proposalId] = true;
 
         emit VoteYes(proposalId, msg.sender);
     }
@@ -136,6 +135,7 @@ contract ProductDao is GroupDao {
         );
 
         _proposal.voteNo++;
+        isVoted[msg.sender][proposalId] = true;
 
         emit VoteNo(proposalId, msg.sender);
     }

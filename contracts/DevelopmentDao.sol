@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 import "./Basics/GroupDao.sol";
-import "./interfaces/IShareHolderDao.sol";
 import "./interfaces/IProductDao.sol";
 import "./interfaces/IERC20LOP.sol";
-import "./libs/types.sol";
 
 contract DevelopmentDao is GroupDao {
     using Counters for Counters.Counter;
@@ -187,6 +185,7 @@ contract DevelopmentDao is GroupDao {
         );
 
         _proposal.voteYes++;
+        isVoted[msg.sender][_proposalId] = true;
 
         emit VoteYes(_proposalId, msg.sender);
     }
@@ -207,6 +206,7 @@ contract DevelopmentDao is GroupDao {
         );
 
         _proposal.voteNo++;
+        isVoted[msg.sender][_proposalId] = true;
 
         emit VoteNo(_proposalId, msg.sender);
     }
@@ -231,7 +231,7 @@ contract DevelopmentDao is GroupDao {
         ).getShareHolderInfoByUser(msg.sender);
 
         require(
-            _proposal.budget < _shareHolderInfo.budget,
+            _proposal.budget <= _shareHolderInfo.budget,
             "DevelopmentDao: proposal budget should be less than shareholder budget"
         );
 
