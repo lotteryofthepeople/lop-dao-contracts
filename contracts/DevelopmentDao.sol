@@ -3,12 +3,15 @@ pragma solidity ^0.8.0;
 import "./Basics/GroupDao.sol";
 import "./interfaces/IShareHolderDao.sol";
 import "./interfaces/IProductDao.sol";
+import "./interfaces/IERC20LOP.sol";
 import "./libs/types.sol";
 
 contract DevelopmentDao is GroupDao {
     using Counters for Counters.Counter;
     // proposal index
     Counters.Counter public proposalIndex;
+    // escrow proposal index
+    Counters.Counter public escrowProposalIndex;
 
     // product dao address
     address public productDao;
@@ -22,6 +25,12 @@ contract DevelopmentDao is GroupDao {
     mapping(address => Types.ProposalStatus) public proposalStatus;
     // user address => proposal id => status
     mapping(address => mapping(uint256 => bool)) public isVoted;
+    // proposal id => escrow amount
+    mapping(uint256 => uint256) public escrow;
+    // escrow proposal id => escrow proposal
+    mapping(uint256 => Types.EscrowProposal) public escrowProposals;
+    // user address => escrow proposal id => status
+    mapping(address => mapping(uint256 => bool)) public escrowIsVoted;
 
     /**
      * @param creator proposal creator
@@ -71,6 +80,29 @@ contract DevelopmentDao is GroupDao {
      * @dev emitted when dupdate product dao address by only owner
      **/
     event ProductDaoUpdated(address indexed prev, address indexed next);
+
+    /**
+     * @param proposalId proposal id
+     * @param amount escrow amount
+     * @param escrowProposalIndex escrow proposal index
+     **/
+    event EscrowProposalCreated(
+        uint256 proposalId,
+        uint256 amount,
+        uint256 escrowProposalIndex
+    );
+
+    /**
+     * @param escrowId escrow proposal id
+     * @param voter voter address
+     **/
+    event EscrowVoteYes(uint256 escrowId, address indexed voter);
+
+    /**
+     * @param escrowId escrow proposal id
+     * @param voter voter address
+     **/
+    event EscrowVoteNo(uint256 escrowId, address indexed voter);
 
     /**
      * @param _shareHolderDao share holder dao address
@@ -209,9 +241,17 @@ contract DevelopmentDao is GroupDao {
 
         if (_proposal.voteYes >= minVote) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
+
+            IShareHolderDao(shareHolderDao).decreaseBudget(_proposal.budget);
+
+            IERC20LOP(getLOP()).mint(address(this), _proposal.budget);
+
+            escrow[_proposalId] = _proposal.budget;
+
             emit Activated(_proposalId, msg.sender);
         } else {
             _proposal.status = Types.ProposalStatus.CANCELLED;
+
             emit Cancelled(_proposalId, msg.sender);
         }
     }
@@ -228,5 +268,109 @@ contract DevelopmentDao is GroupDao {
         minVote = _minVote;
 
         emit MinVoteUpdated(minVote);
+    }
+
+    /**
+     * @param _proposalId proposal id
+     **/
+    function escrowCreateProposal(
+        uint256 _proposalId,
+        uint256 _amount
+    ) external checkTokenHolder {
+        Types.DevelopmentProposal storage _proposal = proposals[_proposalId];
+
+        require(
+            _proposal.status == Types.ProposalStatus.ACTIVE,
+            "DevelopmentDao: Proposal status is not activated"
+        );
+        require(
+            _proposal.owner == msg.sender,
+            "DevelopmentDao: You are not the owner of proposal"
+        );
+        require(
+            escrow[_proposalId] >= _amount,
+            "DevelopmentDao: amount should be less than the escrow budget"
+        );
+
+        Types.EscrowProposal memory _escrowProposal = Types.EscrowProposal({
+            status: Types.ProposalStatus.CREATED,
+            owner: msg.sender,
+            budget: _amount,
+            voteYes: 0,
+            voteNo: 0
+        });
+
+        uint256 _escrowProposalIndex = escrowProposalIndex.current();
+        escrowProposals[_escrowProposalIndex] = _escrowProposal;
+
+        escrowProposalIndex.increment();
+
+        emit EscrowProposalCreated(_proposalId, _amount, _escrowProposalIndex);
+    }
+
+    /**
+     * @param escrowId escrow proposal id
+     **/
+    function escrowVoteYes(uint256 escrowId) external checkTokenHolder {
+        Types.EscrowProposal storage _escrowProposal = escrowProposals[
+            escrowId
+        ];
+
+        require(
+            _escrowProposal.status == Types.ProposalStatus.CREATED,
+            "DevelopmentDao: escrow proposal is not created"
+        );
+        require(
+            !escrowIsVoted[msg.sender][escrowId],
+            "DevelopmentDao: You already voted this proposal"
+        );
+
+        escrowIsVoted[msg.sender][escrowId] = true;
+
+        _escrowProposal.voteYes += 1;
+
+        emit EscrowVoteYes(escrowId, msg.sender);
+    }
+
+    /**
+     * @param escrowId escrow proposal id
+     **/
+    function escrowVoteNo(uint256 escrowId) external checkTokenHolder {
+        Types.EscrowProposal storage _escrowProposal = escrowProposals[
+            escrowId
+        ];
+
+        require(
+            _escrowProposal.status == Types.ProposalStatus.CREATED,
+            "DevelopmentDao: escrow proposal is not created"
+        );
+        require(
+            !escrowIsVoted[msg.sender][escrowId],
+            "DevelopmentDao: You already voted this proposal"
+        );
+
+        escrowIsVoted[msg.sender][escrowId] = true;
+
+        _escrowProposal.voteNo += 1;
+
+        emit EscrowVoteNo(escrowId, msg.sender);
+    }
+
+    function escrowVoteExecute(uint256 escrowId) external checkTokenHolder {
+        Types.EscrowProposal storage _escrowProposal = escrowProposals[
+            escrowId
+        ];
+
+        require(
+            _escrowProposal.status == Types.ProposalStatus.CREATED,
+            "DevelopmentDao: escrow proposal is not created"
+        );
+        require(
+            _escrowProposal.owner == msg.sender,
+            "DevelopmentDao: only proposal owner can execute"
+        );
+
+        
+
     }
 }

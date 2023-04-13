@@ -7,5 +7,9 @@ interface IShareHolderDao {
 
     function getVLOP() external returns (address);
 
-    function getShareHolderInfoByUser(address _user) external returns (Types.ShareHolderInfo memory _info);
+    function getShareHolderInfoByUser(
+        address _user
+    ) external returns (Types.ShareHolderInfo memory _info);
+
+    function decreaseBudget(uint256 _amount) external;
 }

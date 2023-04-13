@@ -93,6 +93,12 @@ contract ShareHolderDao is Ownable {
         uint256 amount
     );
 
+    /**
+     * @param owner address owner
+     * @param amount decrease amount
+     **/
+    event BudgetDecreased(address owner, uint256 amount);
+
     modifier checkTokenHolder() {
         require(
             IERC20(_LOP).balanceOf(msg.sender) > 0 ||
@@ -266,6 +272,27 @@ contract ShareHolderDao is Ownable {
         _vLOP = vLOP_;
 
         emit SetLOP(_vLOP);
+    }
+
+    /**
+     * @param _amount decrease amount
+     **/
+    function decreaseBudget(uint256 _amount) external {
+        require(
+            _amount > 0,
+            "ShareHolderDao: amount should be greater than the zero"
+        );
+
+        Types.ShareHolderInfo storage _info = _shareHolderInfo[tx.origin];
+
+        require(
+            _info.budget >= _amount,
+            "ShareHolderDao: amount should be less than the budget"
+        );
+
+        _info.budget -= _amount;
+
+        emit BudgetDecreased(tx.origin, _amount);
     }
 
     /**

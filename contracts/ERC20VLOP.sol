@@ -35,7 +35,7 @@ contract ERC20VLOP is ERC20, Ownable {
         emit AddMinter(msg.sender);
     }
 
-    function mint(address to, uint256 amount) public {
+    function mint(address to, uint256 amount) external {
         require(isMinter[msg.sender], "ERC20VLOP: Only minters can mint");
         _mint(to, amount);
     }

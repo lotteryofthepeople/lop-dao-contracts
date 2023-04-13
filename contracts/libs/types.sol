@@ -63,4 +63,12 @@ library Types {
         uint256 productId;
         uint256 budget;
     }
+
+    struct EscrowProposal {
+        ProposalStatus status;
+        address owner;
+        uint256 budget;
+        uint256 voteYes;
+        uint256 voteNo;
+    }
 }
