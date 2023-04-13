@@ -12,13 +12,16 @@ contract ShareHolderDao is Ownable {
 
     // proposal index
     Counters.Counter public proposalIndex;
+    // member index
+    Counters.Counter public memberIndex;
 
     // ERC20 _LOP address
     address private _LOP;
     // ERC20 _vLOP address
     address private _vLOP;
-    // minimum vote number
-    uint256 public minVote;
+
+    // minimum vote percent
+    uint256 private _minVotePercent;
 
     // proposal id => ShareHolderProposal
     mapping(uint256 => Types.ShareHolderProposal) public proposals;
@@ -38,9 +41,9 @@ contract ShareHolderDao is Ownable {
     event SetVLOP(address indexed _vLOP);
 
     /**
-     * @param _minVote min vote number
+     * @param minVotePercent min vote percent
      **/
-    event MinVoteUpdated(uint256 _minVote);
+    event MinVoteUpdated(uint256 minVotePercent);
 
     /**
      * @param owner proposal owner
@@ -112,7 +115,7 @@ contract ShareHolderDao is Ownable {
      * @param LOP_ _LOP ERC20 token address
      * @param vLOP_ _vLOP ERC20 token address
      **/
-    constructor(address LOP_, address vLOP_) {
+    constructor(address LOP_, address vLOP_, uint256 minVotePercent_) {
         require(
             LOP_ != address(0),
             "ShareHolderDao: LOP address hould not be the zero address"
@@ -121,12 +124,19 @@ contract ShareHolderDao is Ownable {
             vLOP_ != address(0),
             "ShareHolderDao: vLOP address hould not be the zero address"
         );
+        require(
+            minVotePercent_ > 0,
+            "ShareHolderDao: min vote percent should be greater than the zero"
+        );
 
         _LOP = LOP_;
         _vLOP = vLOP_;
 
+        _minVotePercent = minVotePercent_;
+
         emit SetLOP(_LOP);
         emit SetVLOP(_vLOP);
+        emit MinVoteUpdated(minVotePercent_);
     }
 
     /**
@@ -221,27 +231,18 @@ contract ShareHolderDao is Ownable {
             "ShareHolderDao: You are not the owner of this proposal"
         );
 
-        if (_proposal.voteYes >= minVote) {
+        uint256 _voteYesPercent = (_proposal.voteYes * 100) /
+            memberIndex.current();
+
+        if (_voteYesPercent >= _minVotePercent) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
+            memberIndex.increment();
+
             emit Activated(proposalId);
         } else {
             _proposal.status = Types.ProposalStatus.CANCELLED;
             emit Cancelled(proposalId);
         }
-    }
-
-    /**
-     * @param _minVote min vote number
-     **/
-    function setMinVote(uint256 _minVote) external onlyOwner {
-        require(
-            _minVote > 0,
-            "ShareHolderDao: minVote should be greater than the zero"
-        );
-
-        minVote = _minVote;
-
-        emit MinVoteUpdated(minVote);
     }
 
     /**
@@ -272,6 +273,21 @@ contract ShareHolderDao is Ownable {
         _vLOP = vLOP_;
 
         emit SetLOP(_vLOP);
+    }
+
+    /**
+     * @param minVotePercent_ min vote percent
+     * @dev only owner can set minVotePercent
+     **/
+    function setMinVotePercent(uint256 minVotePercent_) external onlyOwner {
+        require(
+            minVotePercent_ > 0,
+            "ShareHolderDao: min vote should be greater than the zero"
+        );
+
+        _minVotePercent = minVotePercent_;
+
+        emit MinVoteUpdated(_minVotePercent);
     }
 
     /**
@@ -367,5 +383,9 @@ contract ShareHolderDao is Ownable {
         address _user
     ) external view returns (Types.ShareHolderInfo memory _info) {
         return _shareHolderInfo[_user];
+    }
+
+    function getMinVotePercent() external view returns (uint256) {
+        return _minVotePercent;
     }
 }

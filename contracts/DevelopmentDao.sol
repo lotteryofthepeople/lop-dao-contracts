@@ -16,9 +16,6 @@ contract DevelopmentDao is GroupDao {
     // product dao address
     address public productDao;
 
-    // minimum vote number
-    uint256 public minVote;
-
     // proposal id => DevelopmentProposal
     mapping(uint256 => Types.DevelopmentProposal) public proposals;
     // proposal owner => proposal status
@@ -70,9 +67,16 @@ contract DevelopmentDao is GroupDao {
     event Cancelled(uint256 proposalId, address indexed canceller);
 
     /**
-     * @param _minVote min vote number
+     * @param proposalId propoal id
+     * @param activator activator
      **/
-    event MinVoteUpdated(uint256 _minVote);
+    event EscrowActivated(uint256 proposalId, address indexed activator);
+
+    /**
+     * @param proposalId proposal id
+     * @param canceller canceller
+     **/
+    event EscrowCancelled(uint256 proposalId, address indexed canceller);
 
     /**
      * @param prev previous product address
@@ -107,26 +111,18 @@ contract DevelopmentDao is GroupDao {
     /**
      * @param _shareHolderDao share holder dao address
      * @param _productDao product dao address
-     * @param _minVote min vote number
      **/
     constructor(
         address _shareHolderDao,
-        address _productDao,
-        uint256 _minVote
+        address _productDao
     ) GroupDao(_shareHolderDao) {
         require(
             _productDao != address(0),
             "DevelopmentDao: share holder dao address should not be the zero address"
         );
-        require(
-            _minVote > 0,
-            "DevelopmentDao: min vote should be greater than the zero"
-        );
 
         productDao = _productDao;
-        minVote = _minVote;
 
-        emit MinVoteUpdated(minVote);
         emit ProductDaoUpdated(address(0), productDao);
     }
 
@@ -239,7 +235,13 @@ contract DevelopmentDao is GroupDao {
             "DevelopmentDao: proposal budget should be less than shareholder budget"
         );
 
-        if (_proposal.voteYes >= minVote) {
+        uint256 _voteYesPercent = (_proposal.voteYes * 100) /
+            memberIndex.current();
+
+        if (
+            _voteYesPercent >=
+            IShareHolderDao(shareHolderDao).getMinVotePercent()
+        ) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
 
             IShareHolderDao(shareHolderDao).decreaseBudget(_proposal.budget);
@@ -254,20 +256,6 @@ contract DevelopmentDao is GroupDao {
 
             emit Cancelled(_proposalId, msg.sender);
         }
-    }
-
-    /**
-     * @param _minVote min vote number
-     **/
-    function setMinVote(uint256 _minVote) external onlyOwner {
-        require(
-            _minVote > 0,
-            "DevelopmentDao: minVote should be greater than the zero"
-        );
-
-        minVote = _minVote;
-
-        emit MinVoteUpdated(minVote);
     }
 
     /**
@@ -286,6 +274,10 @@ contract DevelopmentDao is GroupDao {
         require(
             _proposal.owner == msg.sender,
             "DevelopmentDao: You are not the owner of proposal"
+        );
+        require(
+            _amount > 0,
+            "DevelopmentDao: amount should be greater than the zero"
         );
         require(
             escrow[_proposalId] >= _amount,
@@ -370,7 +362,27 @@ contract DevelopmentDao is GroupDao {
             "DevelopmentDao: only proposal owner can execute"
         );
 
-        
+        uint256 _voteYesPercent = (_escrowProposal.voteYes * 100) /
+            memberIndex.current();
 
+        if (
+            _voteYesPercent >=
+            IShareHolderDao(shareHolderDao).getMinVotePercent()
+        ) {
+            _escrowProposal.status = Types.ProposalStatus.ACTIVE;
+
+            escrow[escrowId] -= _escrowProposal.budget;
+
+            require(IERC20LOP(IShareHolderDao(shareHolderDao).getLOP()).transfer(
+                msg.sender,
+                _escrowProposal.budget
+            ), "DevelopmentDao: tansfer LOP token fail");
+
+            emit EscrowActivated(escrowId, msg.sender);
+        } else {
+            _escrowProposal.status = Types.ProposalStatus.CANCELLED;
+
+            emit EscrowCancelled(escrowId, msg.sender);
+        }
     }
 }

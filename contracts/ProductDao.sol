@@ -9,9 +9,6 @@ contract ProductDao is GroupDao {
     // proposal index
     Counters.Counter public proposalIndex;
 
-    // minimum vote number
-    uint256 public minVote;
-
     // proposal id => Product proposal
     mapping(uint256 => Types.ProductProposal) public _proposals;
     // proposal owner => proposal status
@@ -55,32 +52,19 @@ contract ProductDao is GroupDao {
     event Cancelled(uint256 proposalId, address indexed canceller);
 
     /**
-     * @param _minVote min vote number
-     **/
-    event MinVoteUpdated(uint256 _minVote);
-
-    /**
      * @param _shareHolderDao share holder dao address
-     * @param _minVote min vote number
      **/
     constructor(
-        address _shareHolderDao,
-        uint256 _minVote
+        address _shareHolderDao
     ) GroupDao(_shareHolderDao) {
         require(
             _shareHolderDao != address(0),
             "ProductDao: share holder dao address should not be the zero address"
         );
-        require(
-            _minVote > 0,
-            "ProductDao: min vote should be greater than the zero"
-        );
 
         shareHolderDao = _shareHolderDao;
-        minVote = _minVote;
 
         emit ShareHolderDaoUpdated(address(0), shareHolderDao);
-        emit MinVoteUpdated(minVote);
     }
 
     /**
@@ -171,27 +155,15 @@ contract ProductDao is GroupDao {
             "ProductDao: You are not the owner of this proposal"
         );
 
-        if (_proposal.voteYes >= minVote) {
+        uint256 _voteYesPercent = _proposal.voteYes * 100 / memberIndex.current();
+
+        if (_voteYesPercent >= IShareHolderDao(shareHolderDao).getMinVotePercent()) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
             emit Activated(proposalId, msg.sender);
         } else {
             _proposal.status = Types.ProposalStatus.CANCELLED;
             emit Cancelled(proposalId, msg.sender);
         }
-    }
-
-    /**
-     * @param _minVote min vote number
-     **/
-    function setMinVote(uint256 _minVote) external onlyOwner {
-        require(
-            _minVote > 0,
-            "ProdcutDao: minVote should be greater than the zero"
-        );
-
-        minVote = _minVote;
-
-        emit MinVoteUpdated(minVote);
     }
 
     function getProposalById(uint256 _proposalId) external view {

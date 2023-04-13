@@ -13,6 +13,8 @@ contract GroupDao is Ownable {
 
     // join request index
     Counters.Counter public joinRequestIndex;
+    // member index
+    Counters.Counter public memberIndex;
 
     // share holder dao address
     address public shareHolderDao;
@@ -157,6 +159,8 @@ contract GroupDao is Ownable {
         _joinRequest.status = Types.JoinRequestStatus.PASSED;
         _member.status == Types.MemberStatus.JOINED;
 
+        memberIndex.increment();
+
         emit AeeptedJoinRequest(_joinRequestIndex, msg.sender);
     }
 
@@ -190,6 +194,18 @@ contract GroupDao is Ownable {
             _user != address(0),
             "GroupDao: user should not be the zero address"
         );
+        require(
+            members[_user].status != _status,
+            "GroupDao: same status error"
+        );
+
+        if (members[_user].status == Types.MemberStatus.JOINED) {
+            memberIndex.decrement();
+        }
+
+        if (_status == Types.MemberStatus.JOINED) {
+            memberIndex.increment();
+        }
 
         members[_user].status = _status;
 
@@ -253,14 +269,14 @@ contract GroupDao is Ownable {
     /**
      * @dev get LOP address from ShareHolderDao
      **/
-    function getLOP() public returns (address) {
+    function getLOP() public view returns (address) {
         return IShareHolderDao(shareHolderDao).getLOP();
     }
 
     /**
      * @dev get vLOP address from ShareHolderDao
      **/
-    function getVLOP() public returns (address) {
+    function getVLOP() public view returns (address) {
         return IShareHolderDao(shareHolderDao).getVLOP();
     }
 
