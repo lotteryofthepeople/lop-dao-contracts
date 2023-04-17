@@ -44,7 +44,7 @@ contract ERC20LOP is ERC20, Ownable {
      * @param user address of user
      * @dev add user to minter list
      **/
-    function addMinter(address user) public onlyOwner {
+    function addMinter(address user) external onlyOwner {
         require(
             user != address(0),
             "ERC20LOP: user should not be the zero address"
@@ -60,7 +60,7 @@ contract ERC20LOP is ERC20, Ownable {
      * @param user address of user
      * @dev remove user from minter list
      **/
-    function removeMinter(address user) public onlyOwner {
+    function removeMinter(address user) external onlyOwner {
         require(
             user != address(0),
             "ERC20LOP: minter should not be the zero address"
