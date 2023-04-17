@@ -2,6 +2,15 @@ const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
 const initialSupply = ethers.utils.parseEther("100000");
+const minVotePercent = 5;
+const proposalAmount = ethers.utils.parseEther("1.5");
+
+const ProposalStatus = {
+  NONE: 0,
+  CREATED: 1,
+  CANCELLED: 2,
+  ACTIVE: 3,
+};
 
 describe("LOP TestCase", () => {
   before(async () => {
@@ -10,6 +19,7 @@ describe("LOP TestCase", () => {
 
     erc20LOPFactory = await ethers.getContractFactory("ERC20LOP");
     erc20VLOPFactory = await ethers.getContractFactory("ERC20VLOP");
+    shareHolderDaoFactory = await ethers.getContractFactory("ShareHolderDao");
 
     erc20LOPContract = await erc20LOPFactory
       .connect(owner)
@@ -17,6 +27,14 @@ describe("LOP TestCase", () => {
     erc20VLOPContract = await erc20VLOPFactory
       .connect(owner)
       .deploy(initialSupply);
+
+    shareHolderContract = await shareHolderDaoFactory
+      .connect(owner)
+      .deploy(
+        erc20LOPContract.address,
+        erc20VLOPContract.address,
+        minVotePercent
+      );
   });
 
   describe("Check ERC20LOP contract", () => {
@@ -90,6 +108,86 @@ describe("LOP TestCase", () => {
       expect(await erc20VLOPContract.isMinter(addr1.address)).to.be.equal(
         false
       );
+    });
+  });
+
+  describe("Check ShareHolderDao contract", async () => {
+    it("check LOP address", async () => {
+      expect(await shareHolderContract.getLOP()).to.be.equal(
+        erc20LOPContract.address
+      );
+    });
+
+    it("check vLOP address", async () => {
+      expect(await shareHolderContract.getVLOP()).to.be.equal(
+        erc20VLOPContract.address
+      );
+    });
+
+    it("check getMinVotePercent", async () => {
+      expect(await shareHolderContract.getMinVotePercent()).to.be.equal(
+        minVotePercent
+      );
+    });
+
+    describe("Check `createProposal`", () => {
+      it("only token holder can create a new proposal", async () => {
+        expect(
+          shareHolderContract.connect(addr1).createProposal(proposalAmount)
+        ).to.be.revertedWith(
+          "ShareHolderDao: You have not enough LOP or vLOP token"
+        );
+      });
+
+      it("check create a new proposal with event", async () => {
+        await expect(
+          shareHolderContract.connect(owner).createProposal(proposalAmount)
+        )
+          .to.emit(shareHolderContract, "ProposalCreated")
+          .withArgs(owner.address, proposalAmount, 0);
+      });
+
+      it("check share info after create a new proposal", async () => {
+        expect(await shareHolderContract.proposalIndex()).to.be.equal(1);
+        const _shareInfo = await shareHolderContract.getShareHolderInfoByUser(
+          owner.address
+        );
+        expect(_shareInfo.created).to.be.equal(true);
+        expect(_shareInfo.budget).to.be.equal(proposalAmount);
+      });
+
+      it("check proposal info after create a new proposal", async () => {
+        const _proposal = await shareHolderContract.proposals(0);
+        expect(_proposal.budget).to.be.equal(proposalAmount);
+        expect(_proposal.owner).to.be.equal(owner.address);
+        expect(_proposal.status).to.be.equal(ProposalStatus.CREATED);
+        expect(_proposal.voteYes).to.be.equal(0);
+        expect(_proposal.voteNo).to.be.equal(0);
+      });
+
+      it("only one proposal should be active now", async () => {
+        expect(
+          shareHolderContract.connect(owner).createProposal(proposalAmount)
+        ).to.be.revertedWith("ShareHolderDao: Your proposal is active now");
+      });
+    });
+
+    describe("Check `voteYes`", () => {
+      it("only token holder can voteYes", async () => {
+        expect(
+          shareHolderContract.connect(addr1).voteYes(0)
+        ).to.be.revertedWith(
+          "ShareHolderDao: You have not enough LOP or vLOP token"
+        );
+      });
+    });
+
+    describe("Check `voteNo`", () => {
+      it("only token holder can voteNo", async () => {
+        expect(shareHolderContract.connect(addr1).voteNo(0)).to.be.revertedWith(
+          "ShareHolderDao: You have not enough LOP or vLOP token"
+        );
+      });
     });
   });
 });
