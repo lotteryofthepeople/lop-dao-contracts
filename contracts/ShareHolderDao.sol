@@ -25,10 +25,11 @@ contract ShareHolderDao is Ownable {
 
     // proposal id => ShareHolderProposal
     mapping(uint256 => Types.ShareHolderProposal) public proposals;
-    // user => bool status
-    mapping(address => Types.ShareHolderInfo) public _shareHolderInfo;
     // user address => proposal id => status
     mapping(address => mapping(uint256 => bool)) public isVoted;
+    
+    // user => share holder info
+    mapping(address => Types.ShareHolderInfo) private _shareHolderInfo;
 
     /**
      * @param _LOP ERC20 _LOP address
