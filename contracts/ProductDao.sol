@@ -52,9 +52,7 @@ contract ProductDao is GroupDao {
     /**
      * @param _shareHolderDao share holder dao address
      **/
-    constructor(
-        address _shareHolderDao
-    ) GroupDao(_shareHolderDao) {
+    constructor(address _shareHolderDao) GroupDao(_shareHolderDao) {
         require(
             _shareHolderDao != address(0),
             "ProductDao: share holder dao address should not be the zero address"
@@ -155,9 +153,13 @@ contract ProductDao is GroupDao {
             "ProductDao: You are not the owner of this proposal"
         );
 
-        uint256 _voteYesPercent = _proposal.voteYes * 100 / memberIndex.current();
+        uint256 _voteYesPercent = (_proposal.voteYes * 100) /
+            memberIndex.current();
 
-        if (_voteYesPercent >= IShareHolderDao(shareHolderDao).getMinVotePercent()) {
+        if (
+            _voteYesPercent >=
+            IShareHolderDao(shareHolderDao).getMinVotePercent()
+        ) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
             emit Activated(proposalId, msg.sender);
         } else {
@@ -166,7 +168,9 @@ contract ProductDao is GroupDao {
         }
     }
 
-    function getProposalById(uint256 _proposalId) external view {
-        _proposals[_proposalId];
+    function getProposalById(
+        uint256 _proposalId
+    ) external view returns (Types.ProductProposal memory _proposal) {
+        _proposal = _proposals[_proposalId];
     }
 }
