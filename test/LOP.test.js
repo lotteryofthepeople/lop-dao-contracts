@@ -2,7 +2,7 @@ const { ethers } = require("hardhat");
 const { expect } = require("chai");
 
 const initialSupply = ethers.utils.parseEther("100000");
-const minVotePercent = 5;
+const minVotePercent = 65;
 const proposalAmount = ethers.utils.parseEther("1.5");
 
 const ProposalStatus = {
@@ -238,5 +238,12 @@ describe("LOP TestCase", () => {
         true
       );
     });
+
+    it("check execute", async () => {
+      await productDaoContract.connect(owner).execute(0);
+      const _proposalInfo = await productDaoContract.getProposalById(0);
+      expect(_proposalInfo.status).to.be.equal(ProposalStatus.ACTIVE);
+    });
+
   });
 });

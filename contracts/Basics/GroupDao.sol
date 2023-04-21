@@ -101,6 +101,8 @@ contract GroupDao is Ownable {
 
         shareHolderDao = _shareHolderDao;
 
+        memberIndex.increment();
+
         emit ShareHolderDaoUpdated(address(0), shareHolderDao);
     }
 
@@ -278,6 +280,10 @@ contract GroupDao is Ownable {
      **/
     function getVLOP() public view returns (address) {
         return IShareHolderDao(shareHolderDao).getVLOP();
+    }
+
+    function getMinVotePercent() public view returns (uint256) {
+        return IShareHolderDao(shareHolderDao).getMinVotePercent();
     }
 
     /**

@@ -157,8 +157,7 @@ contract ProductDao is GroupDao {
             memberIndex.current();
 
         if (
-            _voteYesPercent >=
-            IShareHolderDao(shareHolderDao).getMinVotePercent()
+            _voteYesPercent >= getMinVotePercent()
         ) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
             emit Activated(proposalId, msg.sender);
