@@ -18,6 +18,12 @@ contract TreasuryDao is Ownable {
     // swap status
     bool public swapStatus;
 
+    // user => usdc depoit amount
+    mapping(address => uint256) public usdcDeopist;
+
+    // user => lop deposit amount
+    mapping(address => uint256) public lopDeposit;
+
     /**
      * @param creator swap creator
      * @param amount swap amount
@@ -34,12 +40,6 @@ contract TreasuryDao is Ownable {
      * @param status new swap status
      **/
     event SwapStatusUpdated(bool status);
-
-    /**
-     * @param prev previous USDC address
-     * @param next next USDC address
-     **/
-    event USDCUpdated(address indexed prev, address indexed next);
 
     /**
      * @param _shareHolderDao share holder dao address
@@ -92,7 +92,6 @@ contract TreasuryDao is Ownable {
 
         shareHolderDao = _shareHolderDao;
 
-        emit USDCUpdated(address(0), USDC);
         emit ShareHolderUpdated(shareHolderDao);
     }
 
@@ -113,6 +112,8 @@ contract TreasuryDao is Ownable {
             "TreasuryDao: approve allowance is not enough in LOP"
         );
 
+        lopDeposit[msg.sender] += amount;
+
         IERC20(_LOP).safeTransferFrom(msg.sender, address(this), amount);
 
         emit DepositedLOP(msg.sender, amount);
@@ -132,6 +133,8 @@ contract TreasuryDao is Ownable {
             IERC20(USDC).allowance(msg.sender, address(this)) >= amount,
             "TreasuryDao: approve allowance is not enough in USDC"
         );
+
+        usdcDeopist[msg.sender] += amount;
 
         IERC20(USDC).safeTransferFrom(msg.sender, address(this), amount);
 
@@ -223,22 +226,6 @@ contract TreasuryDao is Ownable {
         shareHolderDao = _shareHolderDao;
 
         emit ShareHolderUpdated(_shareHolderDao);
-    }
-
-    /**
-     * @param _USDC new USDC address
-     **/
-    function setUSDC(address _USDC) external onlyOwner {
-        require(
-            _USDC != address(0),
-            "TreasuryDao: USDC should not be the zero address"
-        );
-
-        address _prev = USDC;
-
-        USDC = _USDC;
-
-        emit USDCUpdated(_prev, USDC);
     }
 
     /**

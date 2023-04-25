@@ -21,6 +21,8 @@ describe("LOP TestCase", () => {
     erc20VLOPFactory = await ethers.getContractFactory("ERC20VLOP");
     shareHolderDaoFactory = await ethers.getContractFactory("ShareHolderDao");
     productDaoFactory = await ethers.getContractFactory("ProductDao");
+    usdcFactory = await ethers.getContractFactory("USDC");
+    treasuryDaoFactory = await ethers.getContractFactory("TreasuryDao");
 
     erc20LOPContract = await erc20LOPFactory
       .connect(owner)
@@ -41,6 +43,12 @@ describe("LOP TestCase", () => {
     productDaoContract = await productDaoFactory
       .connect(owner)
       .deploy(shareHolderContract.address);
+
+    usdcContract = await usdcFactory.connect(owner).deploy();
+
+    treasuryDaoContract = await treasuryDaoFactory
+      .connect(owner)
+      .deploy(usdcContract.address, shareHolderContract.address);
   });
 
   describe("Check ERC20LOP contract", () => {
@@ -244,6 +252,112 @@ describe("LOP TestCase", () => {
       const _proposalInfo = await productDaoContract.getProposalById(0);
       expect(_proposalInfo.status).to.be.equal(ProposalStatus.ACTIVE);
     });
+  });
 
+  describe("Check TreasuryDao contract", async () => {
+    it("set usdc contract", async () => {
+      expect(await treasuryDaoContract.USDC()).to.be.equal(
+        usdcContract.address
+      );
+    });
+
+    it("set shareholder dao address", async () => {
+      expect(await treasuryDaoContract.shareHolderDao()).to.be.equal(
+        shareHolderContract.address
+      );
+    });
+
+    it("check depositLOP", async () => {
+      await erc20LOPContract
+        .connect(owner)
+        .approve(treasuryDaoContract.address, ethers.utils.parseEther("1"));
+
+      await treasuryDaoContract
+        .connect(owner)
+        .depositLOP(ethers.utils.parseEther("1"));
+
+      expect(
+        await erc20LOPContract.balanceOf(treasuryDaoContract.address)
+      ).to.be.equal(ethers.utils.parseEther("1"));
+    });
+
+    it("check depositUsdc", async () => {
+      await usdcContract
+        .connect(owner)
+        .approve(treasuryDaoContract.address, ethers.utils.parseEther("1"));
+
+      await treasuryDaoContract
+        .connect(owner)
+        .depositUsdc(ethers.utils.parseEther("1"));
+
+      expect(
+        await usdcContract.balanceOf(treasuryDaoContract.address)
+      ).to.be.equal(ethers.utils.parseEther("1"));
+    });
+
+    it("check setSwapStatus", async () => {
+      await treasuryDaoContract.connect(owner).setSwapStatus(true);
+      expect(await treasuryDaoContract.swapStatus()).to.be.equal(true);
+    });
+
+    it("check swapLopToUsdc", async () => {
+      const amount = "0.5";
+      await erc20LOPContract
+        .connect(owner)
+        .approve(treasuryDaoContract.address, ethers.utils.parseEther(amount));
+
+      const beforeTreasuryBalance = await erc20LOPContract.balanceOf(
+        treasuryDaoContract.address
+      );
+
+      await treasuryDaoContract
+        .connect(owner)
+        .swapLopToUsdc(ethers.utils.parseEther(amount));
+
+      const afterTreasuryBalance = await erc20LOPContract.balanceOf(
+        treasuryDaoContract.address
+      );
+
+      expect(afterTreasuryBalance.sub(beforeTreasuryBalance)).to.be.equal(
+        ethers.utils.parseEther(amount)
+      );
+
+      expect(
+        await usdcContract.balanceOf(treasuryDaoContract.address)
+      ).to.be.equal(ethers.utils.parseEther(amount));
+    });
+
+    it("check swapUsdcToLop", async () => {
+      const amount = "0.5";
+      await usdcContract
+        .connect(owner)
+        .approve(treasuryDaoContract.address, ethers.utils.parseEther(amount));
+
+      const beforeUsdcBalance = await usdcContract.balanceOf(
+        treasuryDaoContract.address
+      );
+      const beforeLopBalance = await erc20LOPContract.balanceOf(
+        treasuryDaoContract.address
+      );
+
+      await treasuryDaoContract
+        .connect(owner)
+        .swapUsdcToLop(ethers.utils.parseEther(amount));
+
+      const afterUsdcBalance = await usdcContract.balanceOf(
+        treasuryDaoContract.address
+      );
+
+      const afterLopBalance = await erc20LOPContract.balanceOf(
+        treasuryDaoContract.address
+      );
+
+      expect(afterUsdcBalance.sub(beforeUsdcBalance)).to.be.equal(
+        ethers.utils.parseEther(amount)
+      );
+      expect(beforeLopBalance.sub(afterLopBalance)).to.be.equal(
+        ethers.utils.parseEther(amount)
+      );
+    });
   });
 });
