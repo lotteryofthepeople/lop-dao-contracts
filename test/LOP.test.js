@@ -146,19 +146,25 @@ describe("LOP TestCase", () => {
 
     describe("Check `createProposal`", () => {
       it("only token holder can create a new proposal", async () => {
+        const metadata = "http://localhost:3000/metadata";
         expect(
-          shareHolderContract.connect(addr1).createProposal(proposalAmount)
+          shareHolderContract
+            .connect(addr1)
+            .createProposal(proposalAmount, metadata)
         ).to.be.revertedWith(
           "ShareHolderDao: You have not enough LOP or vLOP token"
         );
       });
 
       it("check create a new proposal with event", async () => {
+        const metadata = "http://localhost:3000/metadata";
         await expect(
-          shareHolderContract.connect(owner).createProposal(proposalAmount)
+          shareHolderContract
+            .connect(owner)
+            .createProposal(proposalAmount, metadata)
         )
           .to.emit(shareHolderContract, "ProposalCreated")
-          .withArgs(owner.address, proposalAmount, 0);
+          .withArgs(owner.address, proposalAmount, 0, metadata);
       });
 
       it("check share info after create a new proposal", async () => {

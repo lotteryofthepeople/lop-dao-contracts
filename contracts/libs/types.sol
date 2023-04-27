@@ -33,6 +33,7 @@ library Types {
     struct ShareHolderInfo {
         bool created;
         uint256 budget;
+        string metadata;
     }
 
     struct JoinRequest {

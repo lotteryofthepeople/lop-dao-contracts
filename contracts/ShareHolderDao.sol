@@ -27,7 +27,7 @@ contract ShareHolderDao is Ownable {
     mapping(uint256 => Types.ShareHolderProposal) public proposals;
     // user address => proposal id => status
     mapping(address => mapping(uint256 => bool)) public isVoted;
-    
+
     // user => share holder info
     mapping(address => Types.ShareHolderInfo) private _shareHolderInfo;
 
@@ -50,12 +50,14 @@ contract ShareHolderDao is Ownable {
      * @param owner proposal owner
      * @param budget proposal budget
      * @param proposalId proposal id
+     * @param metadata metadata
      * @dev emitted when create a new proposal
      **/
     event ProposalCreated(
         address indexed owner,
         uint256 budget,
-        uint256 proposalId
+        uint256 proposalId,
+        string metadata
     );
 
     /**
@@ -144,7 +146,10 @@ contract ShareHolderDao is Ownable {
      * @param _budget proposal budget
      * @dev create a new proposal
      **/
-    function createProposal(uint256 _budget) external checkTokenHolder {
+    function createProposal(
+        uint256 _budget,
+        string calldata metadata
+    ) external checkTokenHolder {
         require(
             !_shareHolderInfo[msg.sender].created,
             "ShareHolderDao: Your proposal is active now"
@@ -152,6 +157,10 @@ contract ShareHolderDao is Ownable {
         require(
             _budget > 0,
             "ShareHolderDao: budget should be greater than the zero"
+        );
+        require(
+            bytes(metadata).length > 0,
+            "ShareHolderDao: metadata should not be empty"
         );
 
         Types.ShareHolderProposal memory _proposal = Types.ShareHolderProposal({
@@ -168,12 +177,13 @@ contract ShareHolderDao is Ownable {
 
         _shareHolderInfo[msg.sender] = Types.ShareHolderInfo({
             created: true,
-            budget: _budget
+            budget: _budget,
+            metadata: metadata
         });
 
         proposalIndex.increment();
 
-        emit ProposalCreated(msg.sender, _budget, _proposalIndex);
+        emit ProposalCreated(msg.sender, _budget, _proposalIndex, metadata);
     }
 
     /**
