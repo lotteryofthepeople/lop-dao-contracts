@@ -121,6 +121,8 @@ contract DevelopmentDao is GroupDao {
 
         productDao = _productDao;
 
+        memberIndex.current();
+
         emit ProductDaoUpdated(address(0), productDao);
     }
 
@@ -373,10 +375,13 @@ contract DevelopmentDao is GroupDao {
 
             escrow[escrowId] -= _escrowProposal.budget;
 
-            require(IERC20LOP(IShareHolderDao(shareHolderDao).getLOP()).transfer(
-                msg.sender,
-                _escrowProposal.budget
-            ), "DevelopmentDao: tansfer LOP token fail");
+            require(
+                IERC20LOP(IShareHolderDao(shareHolderDao).getLOP()).transfer(
+                    msg.sender,
+                    _escrowProposal.budget
+                ),
+                "DevelopmentDao: tansfer LOP token fail"
+            );
 
             emit EscrowActivated(escrowId, msg.sender);
         } else {

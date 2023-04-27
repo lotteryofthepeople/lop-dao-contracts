@@ -60,6 +60,8 @@ contract ProductDao is GroupDao {
 
         shareHolderDao = _shareHolderDao;
 
+        memberIndex.current();
+
         emit ShareHolderDaoUpdated(address(0), shareHolderDao);
     }
 

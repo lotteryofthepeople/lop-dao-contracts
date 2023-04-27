@@ -137,6 +137,8 @@ contract ShareHolderDao is Ownable {
 
         _minVotePercent = minVotePercent_;
 
+        memberIndex.increment();
+
         emit SetLOP(_LOP);
         emit SetVLOP(_vLOP);
         emit MinVoteUpdated(minVotePercent_);
