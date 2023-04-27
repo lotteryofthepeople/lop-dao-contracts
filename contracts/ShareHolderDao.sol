@@ -244,6 +244,8 @@ contract ShareHolderDao is Ownable {
             "ShareHolderDao: You are not the owner of this proposal"
         );
 
+        _shareHolderInfo[msg.sender].created = false;
+
         uint256 _voteYesPercent = (_proposal.voteYes * 100) /
             memberIndex.current();
 

@@ -1,30 +1,23 @@
 const { ethers } = require("hardhat");
 
-const totalSupply = ethers.utils.parseEther("10000000");
 const minVotePercent = 5; // 5%
+const ERC20LOPContractAddress = "0x421C8727370aFA82Cb1b8Da97d3C10B31361A004";
+const ERC20VLOPContractAddress = "0x0584C994824b93FfE675d09aEA823Fe97Fa4ef98";
+const UsdcContractAddress = "0x9FC58C925ADf1163fEE5Cd1d56e5e550624c2d91";
 
 async function main() {
-  const ERC20LOPFactory = await ethers.getContractFactory("ERC20LOP");
-  const ERC20LOPContract = await ERC20LOPFactory.deploy(totalSupply);
-
-  const ERC20VLOPFactory = await ethers.getContractFactory("ERC20VLOP");
-  const ERC20VLOPContract = await ERC20VLOPFactory.deploy(totalSupply);
-
   const ShareHolderDaoFactory = await ethers.getContractFactory(
     "ShareHolderDao"
   );
   const shareHolderDaoContract = await ShareHolderDaoFactory.deploy(
-    ERC20LOPContract.address,
-    ERC20VLOPContract.address,
+    ERC20LOPContractAddress,
+    ERC20VLOPContractAddress,
     minVotePercent
   );
 
-  usdcFactory = await ethers.getContractFactory("USDC");
-  usdcContract = await usdcFactory.deploy();
-
   const TreasuryDaoFactory = await ethers.getContractFactory("TreasuryDao");
   const treasuryDaoContract = await TreasuryDaoFactory.deploy(
-    usdcContract.address,
+    UsdcContractAddress,
     shareHolderDaoContract.address
   );
 
@@ -39,9 +32,6 @@ async function main() {
     productDaoContract.address
   );
 
-  console.log("ERC20LOPContractContract: ", ERC20LOPContract.address);
-  console.log("ERC20VLOPContractContract: ", ERC20VLOPContract.address);
-  console.log("UsdcContract: ", usdcContract.address);
   console.log("ShareHolderDaoContract: ", shareHolderDaoContract.address);
   console.log("TreasuryDaoContract: ", treasuryDaoContract.address);
   console.log("ProductDaoContract: ", productDaoContract.address);
