@@ -19,9 +19,33 @@ async function main() {
     minVotePercent
   );
 
+  usdcFactory = await ethers.getContractFactory("USDC");
+  usdcContract = await usdcFactory.deploy();
+
+  const TreasuryDaoFactory = await ethers.getContractFactory("TreasuryDao");
+  const treasuryDaoContract = await TreasuryDaoFactory.deploy(
+    usdcContract.address,
+    shareHolderDaoContract.address
+  );
+
+  productDaoFactory = await ethers.getContractFactory("ProductDao");
+  productDaoContract = await productDaoFactory.deploy(
+    shareHolderDaoContract.address
+  );
+
+  developmentDaoFactory = await ethers.getContractFactory("DevelopmentDao");
+  developmentDaoContract = await developmentDaoFactory.deploy(
+    shareHolderDaoContract.address,
+    productDaoContract.address
+  );
+
   console.log("ERC20LOPContractContract: ", ERC20LOPContract.address);
   console.log("ERC20VLOPContractContract: ", ERC20VLOPContract.address);
+  console.log("UsdcContract: ", usdcContract.address);
   console.log("ShareHolderDaoContract: ", shareHolderDaoContract.address);
+  console.log("TreasuryDaoContract: ", treasuryDaoContract.address);
+  console.log("ProductDaoContract: ", productDaoContract.address);
+  console.log("DevelopmentDaoContract: ", developmentDaoContract.address);
 }
 
 main();
