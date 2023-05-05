@@ -247,6 +247,8 @@ contract DevelopmentDao is GroupDao {
         uint256 _voteYesPercent = (_proposal.voteYes * 100) /
             memberIndex.current();
 
+        proposalStatus[msg.sender] = Types.ProposalStatus.NONE;
+
         if (
             _voteYesPercent >=
             IShareHolderDao(shareHolderDao).getMinVotePercent()

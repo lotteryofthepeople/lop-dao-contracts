@@ -158,6 +158,8 @@ contract ProductDao is GroupDao {
         uint256 _voteYesPercent = (_proposal.voteYes * 100) /
             memberIndex.current();
 
+        proposalStatus[msg.sender] = Types.ProposalStatus.NONE;
+
         if (
             _voteYesPercent >= getMinVotePercent()
         ) {
