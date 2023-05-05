@@ -37,7 +37,8 @@ contract DevelopmentDao is GroupDao {
         address indexed creator,
         uint256 proposalIndex,
         string metadata,
-        uint256 _productId
+        uint256 _productId,
+        uint256 budget
     );
 
     /**
@@ -168,7 +169,13 @@ contract DevelopmentDao is GroupDao {
 
         proposalIndex.increment();
 
-        emit ProposalCreated(msg.sender, _proposalIndex, _metadata, _productId);
+        emit ProposalCreated(
+            msg.sender,
+            _proposalIndex,
+            _metadata,
+            _productId,
+            _budget
+        );
     }
 
     /**
