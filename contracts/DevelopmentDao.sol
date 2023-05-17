@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 import "./Basics/GroupDao.sol";
 import "./interfaces/IProductDao.sol";
 import "./interfaces/IERC20LOP.sol";
+import "./interfaces/IShareHolderDao.sol";
 
 contract DevelopmentDao is GroupDao {
     using Counters for Counters.Counter;
@@ -13,6 +14,8 @@ contract DevelopmentDao is GroupDao {
 
     // product dao address
     address public productDao;
+    // share holder dao address
+    address public shareHolderDao;
 
     // proposal id => DevelopmentProposal
     mapping(uint256 => Types.DevelopmentProposal) public proposals;
@@ -82,6 +85,13 @@ contract DevelopmentDao is GroupDao {
      * @param next next product address
      * @dev emitted when dupdate product dao address by only owner
      **/
+    event ShareHolderDaoUpdated(address indexed prev, address indexed next);
+
+    /**
+     * @param prev previous product address
+     * @param next next product address
+     * @dev emitted when dupdate product dao address by only owner
+     **/
     event ProductDaoUpdated(address indexed prev, address indexed next);
 
     /**
@@ -113,17 +123,25 @@ contract DevelopmentDao is GroupDao {
      **/
     constructor(
         address _shareHolderDao,
-        address _productDao
-    ) GroupDao(_shareHolderDao) {
+        address _productDao,
+        address _stakingAddress
+    ) GroupDao(_stakingAddress) {
         require(
-            _productDao != address(0),
+            _shareHolderDao != address(0),
             "DevelopmentDao: share holder dao address should not be the zero address"
         );
+        require(
+            _productDao != address(0),
+            "DevelopmentDao: product dao address should not be the zero address"
+        );
+
+        shareHolderDao = _shareHolderDao;
 
         productDao = _productDao;
 
         memberIndex.current();
 
+        emit ShareHolderDaoUpdated(address(0), shareHolderDao);
         emit ProductDaoUpdated(address(0), productDao);
     }
 
@@ -249,10 +267,7 @@ contract DevelopmentDao is GroupDao {
 
         proposalStatus[msg.sender] = Types.ProposalStatus.NONE;
 
-        if (
-            _voteYesPercent >=
-            IShareHolderDao(shareHolderDao).getMinVotePercent()
-        ) {
+        if (_voteYesPercent >= IStaking(stakingAddress).getMinVotePercent()) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
 
             IShareHolderDao(shareHolderDao).decreaseBudget(_proposal.budget);
@@ -376,16 +391,13 @@ contract DevelopmentDao is GroupDao {
         uint256 _voteYesPercent = (_escrowProposal.voteYes * 100) /
             memberIndex.current();
 
-        if (
-            _voteYesPercent >=
-            IShareHolderDao(shareHolderDao).getMinVotePercent()
-        ) {
+        if (_voteYesPercent >= IStaking(stakingAddress).getMinVotePercent()) {
             _escrowProposal.status = Types.ProposalStatus.ACTIVE;
 
             escrow[escrowId] -= _escrowProposal.budget;
 
             require(
-                IERC20LOP(IShareHolderDao(shareHolderDao).getLOP()).transfer(
+                IERC20LOP(IStaking(stakingAddress).getLOP()).transfer(
                     msg.sender,
                     _escrowProposal.budget
                 ),

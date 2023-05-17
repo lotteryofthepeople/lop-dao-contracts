@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./libs/types.sol";
+import "./interfaces/IStaking.sol";
 
 contract ShareHolderDao is Ownable {
     using SafeERC20 for IERC20;
@@ -15,13 +16,7 @@ contract ShareHolderDao is Ownable {
     // member index
     Counters.Counter public memberIndex;
 
-    // ERC20 _LOP address
-    address private _LOP;
-    // ERC20 _vLOP address
-    address private _vLOP;
-
-    // minimum vote percent
-    uint256 private _minVotePercent;
+    address public stakingAddress;
 
     // proposal id => ShareHolderProposal
     mapping(uint256 => Types.ShareHolderProposal) public proposals;
@@ -32,19 +27,9 @@ contract ShareHolderDao is Ownable {
     mapping(address => Types.ShareHolderInfo) private _shareHolderInfo;
 
     /**
-     * @param _LOP ERC20 _LOP address
+     * @param stakingAddress staking address
      **/
-    event SetLOP(address indexed _LOP);
-
-    /**
-     * @param _vLOP ERC20 _vLOP address
-     **/
-    event SetVLOP(address indexed _vLOP);
-
-    /**
-     * @param minVotePercent min vote percent
-     **/
-    event MinVoteUpdated(uint256 minVotePercent);
+    event SetStakingAddress(address indexed stakingAddress);
 
     /**
      * @param owner proposal owner
@@ -107,41 +92,22 @@ contract ShareHolderDao is Ownable {
 
     modifier checkTokenHolder() {
         require(
-            IERC20(_LOP).balanceOf(msg.sender) > 0 ||
-                IERC20(_vLOP).balanceOf(msg.sender) > 0,
+            IERC20(IStaking(stakingAddress).getLOP()).balanceOf(msg.sender) >
+                0 ||
+                IERC20(IStaking(stakingAddress).getVLOP()).balanceOf(
+                    msg.sender
+                ) >
+                0,
             "ShareHolderDao: You have not enough LOP or vLOP token"
         );
         _;
     }
 
-    /**
-     * @param LOP_ _LOP ERC20 token address
-     * @param vLOP_ _vLOP ERC20 token address
-     **/
-    constructor(address LOP_, address vLOP_, uint256 minVotePercent_) {
-        require(
-            LOP_ != address(0),
-            "ShareHolderDao: LOP address hould not be the zero address"
-        );
-        require(
-            vLOP_ != address(0),
-            "ShareHolderDao: vLOP address hould not be the zero address"
-        );
-        require(
-            minVotePercent_ > 0,
-            "ShareHolderDao: min vote percent should be greater than the zero"
-        );
+    constructor(address _stakingAddress) {
 
-        _LOP = LOP_;
-        _vLOP = vLOP_;
-
-        _minVotePercent = minVotePercent_;
+        stakingAddress = _stakingAddress;
 
         memberIndex.increment();
-
-        emit SetLOP(_LOP);
-        emit SetVLOP(_vLOP);
-        emit MinVoteUpdated(minVotePercent_);
     }
 
     /**
@@ -249,7 +215,7 @@ contract ShareHolderDao is Ownable {
         uint256 _voteYesPercent = (_proposal.voteYes * 100) /
             memberIndex.current();
 
-        if (_voteYesPercent >= _minVotePercent) {
+        if (_voteYesPercent >= IStaking(stakingAddress).getMinVotePercent()) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
             memberIndex.increment();
 
@@ -261,48 +227,18 @@ contract ShareHolderDao is Ownable {
     }
 
     /**
-     * @param LOP_ ERC20 _LOP address
-     * @dev only owner can set _LOP address
+     * @param _stakingAddress staking address
+     * @dev only owner can set staking address
      **/
-    function setLOP(address LOP_) external onlyOwner {
+    function setStakingAddress(address _stakingAddress) external onlyOwner {
         require(
-            LOP_ != address(0),
-            "ShareHolderDao: LOP address hould not be the zero address"
+            _stakingAddress != address(0),
+            "ShareHolderDao: staking address should not be the zero address"
         );
 
-        _LOP = LOP_;
+        stakingAddress = _stakingAddress;
 
-        emit SetLOP(_LOP);
-    }
-
-    /**
-     * @param vLOP_ ERC20 _vLOP address
-     * @dev only owner can set _vLOP address
-     **/
-    function setVLOP(address vLOP_) external onlyOwner {
-        require(
-            vLOP_ != address(0),
-            "ShareHolderDao: vLOP address hould not be the zero address"
-        );
-
-        _vLOP = vLOP_;
-
-        emit SetLOP(_vLOP);
-    }
-
-    /**
-     * @param minVotePercent_ min vote percent
-     * @dev only owner can set minVotePercent
-     **/
-    function setMinVotePercent(uint256 minVotePercent_) external onlyOwner {
-        require(
-            minVotePercent_ > 0,
-            "ShareHolderDao: min vote should be greater than the zero"
-        );
-
-        _minVotePercent = minVotePercent_;
-
-        emit MinVoteUpdated(_minVotePercent);
+        emit SetStakingAddress(stakingAddress);
     }
 
     /**
@@ -386,21 +322,9 @@ contract ShareHolderDao is Ownable {
         emit Withdraw(token, toAddress, amount);
     }
 
-    function getLOP() external view returns (address) {
-        return _LOP;
-    }
-
-    function getVLOP() external view returns (address) {
-        return _vLOP;
-    }
-
     function getShareHolderInfoByUser(
         address _user
     ) external view returns (Types.ShareHolderInfo memory _info) {
         return _shareHolderInfo[_user];
-    }
-
-    function getMinVotePercent() external view returns (uint256) {
-        return _minVotePercent;
     }
 }

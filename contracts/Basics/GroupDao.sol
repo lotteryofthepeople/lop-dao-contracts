@@ -4,7 +4,7 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "../interfaces/IShareHolderDao.sol";
+import "../interfaces/IStaking.sol";
 import "../libs/types.sol";
 
 contract GroupDao is Ownable {
@@ -16,8 +16,8 @@ contract GroupDao is Ownable {
     // member index
     Counters.Counter public memberIndex;
 
-    // share holder dao address
-    address public shareHolderDao;
+    // staking address
+    address public stakingAddress;
 
     // user address => group member status
     mapping(address => Types.Member) public members;
@@ -50,11 +50,11 @@ contract GroupDao is Ownable {
     );
 
     /**
-     * @param prev previous shareholder address
-     * @param next next shareholder address
-     * @dev emitted when dupdate share holder dao address by only owner
+     * @param prev previous staking address
+     * @param next next staking address
+     * @dev emitted when dupdate staking address by only owner
      **/
-    event ShareHolderDaoUpdated(address indexed prev, address indexed next);
+    event StakingAddressUpdated(address indexed prev, address indexed next);
 
     /**
      * @param toAddress to address
@@ -91,19 +91,19 @@ contract GroupDao is Ownable {
     }
 
     /**
-     * @param _shareHolderDao share holder dao address
+     * @param _stakingAddress share holder dao address
      **/
-    constructor(address _shareHolderDao) {
+    constructor(address _stakingAddress) {
         require(
-            _shareHolderDao != address(0),
-            "GroupDao: share holder dao address should not be the zero address"
+            _stakingAddress != address(0),
+            "GroupDao: staking address should not be the zero address"
         );
 
-        shareHolderDao = _shareHolderDao;
+        stakingAddress = _stakingAddress;
 
         memberIndex.increment();
 
-        emit ShareHolderDaoUpdated(address(0), shareHolderDao);
+        emit StakingAddressUpdated(address(0), stakingAddress);
     }
 
     /**
@@ -167,19 +167,19 @@ contract GroupDao is Ownable {
     }
 
     /**
-     * @param _shareHolderDao new shoare holder dao address
+     * @param _stakingAddress new staking address
      **/
-    function setShareHolderDao(address _shareHolderDao) external onlyOwner {
+    function setStakingAddress(address _stakingAddress) external onlyOwner {
         require(
-            _shareHolderDao != address(0),
-            "GroupDao: share holder dao address should not be the zero address"
+            _stakingAddress != address(0),
+            "GroupDao: staking address should not be the zero address"
         );
 
-        address _prevShareHolderDao = shareHolderDao;
+        address _prevStakingAddress = stakingAddress;
 
-        shareHolderDao = _shareHolderDao;
+        stakingAddress = _stakingAddress;
 
-        emit ShareHolderDaoUpdated(_prevShareHolderDao, _shareHolderDao);
+        emit StakingAddressUpdated(_prevStakingAddress, stakingAddress);
     }
 
     /**
@@ -272,18 +272,18 @@ contract GroupDao is Ownable {
      * @dev get LOP address from ShareHolderDao
      **/
     function getLOP() public view returns (address) {
-        return IShareHolderDao(shareHolderDao).getLOP();
+        return IStaking(stakingAddress).getLOP();
     }
 
     /**
      * @dev get vLOP address from ShareHolderDao
      **/
     function getVLOP() public view returns (address) {
-        return IShareHolderDao(shareHolderDao).getVLOP();
+        return IStaking(stakingAddress).getVLOP();
     }
 
     function getMinVotePercent() public view returns (uint256) {
-        return IShareHolderDao(shareHolderDao).getMinVotePercent();
+        return IStaking(stakingAddress).getMinVotePercent();
     }
 
     /**

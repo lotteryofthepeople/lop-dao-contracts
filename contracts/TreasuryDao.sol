@@ -4,7 +4,7 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./interfaces/IShareHolderDao.sol";
+import "./interfaces/IStaking.sol";
 
 contract TreasuryDao is Ownable {
     using SafeERC20 for IERC20;
@@ -12,8 +12,8 @@ contract TreasuryDao is Ownable {
     // usdc token address
     address public USDC;
 
-    // share holder dao address
-    address public shareHolderDao;
+    // staking address
+    address public stakingAddress;
 
     // swap status
     bool public swapStatus;
@@ -42,9 +42,9 @@ contract TreasuryDao is Ownable {
     event SwapStatusUpdated(bool status);
 
     /**
-     * @param _shareHolderDao share holder dao address
+     * @param stakingAddress staking address
      **/
-    event ShareHolderUpdated(address indexed _shareHolderDao);
+    event StakingAddressUpdated(address indexed stakingAddress);
 
     /**
      * @param toAddress to address
@@ -78,21 +78,21 @@ contract TreasuryDao is Ownable {
     /**
      * @param _USDC USDC token address
      **/
-    constructor(address _USDC, address _shareHolderDao) {
+    constructor(address _USDC, address _stakingAddress) {
         require(
             _USDC != address(0),
             "TreasuryDao: USDC should not be the zero address"
         );
         require(
-            _shareHolderDao != address(0),
-            "TreasuryDao: share holder dao address should not be the zero address"
+            _stakingAddress != address(0),
+            "TreasuryDao: staking address should not be the zero address"
         );
 
         USDC = _USDC;
 
-        shareHolderDao = _shareHolderDao;
+        stakingAddress = _stakingAddress;
 
-        emit ShareHolderUpdated(shareHolderDao);
+        emit StakingAddressUpdated(stakingAddress);
     }
 
     /**
@@ -101,7 +101,7 @@ contract TreasuryDao is Ownable {
     function depositLOP(uint256 amount) external {
         require(amount > 0, "TreasuryDao: amount should not be the zero");
 
-        address _LOP = IShareHolderDao(shareHolderDao).getLOP();
+        address _LOP = IStaking(stakingAddress).getLOP();
 
         require(
             IERC20(_LOP).balanceOf(msg.sender) >= amount,
@@ -150,7 +150,7 @@ contract TreasuryDao is Ownable {
             amount > 0,
             "TreasuryDao: amount should be greater than the zero"
         );
-        address _LOP = IShareHolderDao(shareHolderDao).getLOP();
+        address _LOP = IStaking(stakingAddress).getLOP();
         require(
             IERC20(_LOP).balanceOf(msg.sender) >= amount,
             "TreasuryDao: You have not enough LOP token"
@@ -189,8 +189,8 @@ contract TreasuryDao is Ownable {
             "TreasuryDao: Approve allownance error for USDC"
         );
 
-        address _LOP = IShareHolderDao(shareHolderDao).getLOP();
-        
+        address _LOP = IStaking(stakingAddress).getLOP();
+
         require(
             IERC20(_LOP).balanceOf(address(this)) >= amount,
             "TreasuryDao: LOP balance error"
@@ -215,17 +215,17 @@ contract TreasuryDao is Ownable {
     }
 
     /**
-     * @param _shareHolderDao share holder dao address
+     * @param _stakingAddress share holder dao address
      **/
-    function setShareHolderDao(address _shareHolderDao) external onlyOwner {
+    function setStakingAddress(address _stakingAddress) external onlyOwner {
         require(
-            _shareHolderDao != address(0),
-            "TreasuryDao: share holder dao address should not be the zero address"
+            _stakingAddress != address(0),
+            "TreasuryDao: staking address should not be the zero address"
         );
 
-        shareHolderDao = _shareHolderDao;
+        stakingAddress = _stakingAddress;
 
-        emit ShareHolderUpdated(_shareHolderDao);
+        emit StakingAddressUpdated(stakingAddress);
     }
 
     /**

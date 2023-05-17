@@ -72,4 +72,9 @@ library Types {
         uint256 voteYes;
         uint256 voteNo;
     }
+
+    struct StakeInfo {
+        uint256 lopAmount;
+        uint256 vLopAmount;
+    }
 }

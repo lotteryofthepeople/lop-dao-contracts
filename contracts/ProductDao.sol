@@ -50,19 +50,15 @@ contract ProductDao is GroupDao {
     event Cancelled(uint256 proposalId, address indexed canceller);
 
     /**
-     * @param _shareHolderDao share holder dao address
+     * @param stakingAddress staking address
      **/
-    constructor(address _shareHolderDao) GroupDao(_shareHolderDao) {
-        require(
-            _shareHolderDao != address(0),
-            "ProductDao: share holder dao address should not be the zero address"
-        );
+    event SetStakingAddress(uint256 stakingAddress);
 
-        shareHolderDao = _shareHolderDao;
-
+    /**
+     * @param _stakingAddress staking address
+     **/
+    constructor(address _stakingAddress) GroupDao(_stakingAddress) {
         memberIndex.current();
-
-        emit ShareHolderDaoUpdated(address(0), shareHolderDao);
     }
 
     /**
@@ -160,9 +156,7 @@ contract ProductDao is GroupDao {
 
         proposalStatus[msg.sender] = Types.ProposalStatus.NONE;
 
-        if (
-            _voteYesPercent >= getMinVotePercent()
-        ) {
+        if (_voteYesPercent >= getMinVotePercent()) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
             emit Activated(proposalId, msg.sender);
         } else {
