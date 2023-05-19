@@ -27,13 +27,9 @@ library Types {
         address owner;
         ProposalStatus status;
         uint256 voteYes;
+        uint256 voteYesAmount;
         uint256 voteNo;
-    }
-
-    struct ShareHolderInfo {
-        bool created;
-        uint256 budget;
-        string metadata;
+        uint256 voteNoAmount;
     }
 
     struct JoinRequest {
@@ -76,5 +72,14 @@ library Types {
     struct StakeInfo {
         uint256 lopAmount;
         uint256 vLopAmount;
+        uint256[] shareHolderVotingIds;
+        uint256[] productVotingIds;
+        uint256[] developmentVotingIds;
+    }
+
+    struct VotingInfo {
+        bool isVoted;
+        bool voteType; // true => VOTE Yes, false => VOTE No
+        uint256 voteAmount;
     }
 }

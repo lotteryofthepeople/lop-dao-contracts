@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./libs/types.sol";
+import "./interfaces/IShareHolderDao.sol";
 
 contract Staking is Ownable {
     using SafeERC20 for IERC20;
@@ -12,6 +13,20 @@ contract Staking is Ownable {
 
     // staking index
     Counters.Counter public stakingIndex;
+
+    // share holder dao address
+    address public SHARE_HOLDER_ADDRESS;
+    // product dao address
+    address public PRODUCT_ADDRESS;
+    // development dao address
+    address public DEVELOPMENT_ADDRESS;
+
+    // max shareholder voting count
+    uint256 private _MAX_SHARE_HOLDER_VOTING_COUNT;
+    // max prodcut voting count
+    uint256 private _MAX_PRODUCT_VOTING_COUNT;
+    // max development voting count
+    uint256 private _MAX_DEVELOPMENT_VOTING_COUNT;
 
     // ERC20 _LOP address
     address private _LOP;
@@ -21,13 +36,8 @@ contract Staking is Ownable {
     // minimum vote percent
     uint256 private _minVotePercent;
 
-    // total lop amount
-    uint256 public totalLopAmount;
-    // total vlop amount
-    uint256 public totalVLopAmount;
-
     //staker => stake info
-    mapping(address => Types.StakeInfo) public stakingList;
+    mapping(address => Types.StakeInfo) public _stakingList;
     /**
      * @param staker address of staker
      * @param amount staking amount
@@ -49,10 +59,28 @@ contract Staking is Ownable {
      **/
     event WithdrawVLop(address indexed withdrawer, uint256 amount);
     /**
+     * @param staker address of staker
+     * @param shareHolderProposalId share holder proposal id
+     **/
+    event AddShareHolderVotingId(
+        address indexed staker,
+        uint256 shareHolderProposalId
+    );
+    /**
      * @param toAddress to address
      * @param amount withdraw amount
      **/
-    event WithdrawNative(address indexed toAddress, uint256 amount);
+    event AdminWithdrawNative(address indexed toAddress, uint256 amount);
+    /**
+     * @param token token address
+     * @param toAddress destination address
+     * @param amount withdraw amount
+     **/
+    event AdminWithdraw(
+        address indexed token,
+        address indexed toAddress,
+        uint256 amount
+    );
     /**
      * @param _LOP ERC20 _LOP address
      **/
@@ -61,21 +89,65 @@ contract Staking is Ownable {
      * @param _vLOP ERC20 _vLOP address
      **/
     event SetVLOP(address indexed _vLOP);
-    /**
-     * @param token token address
-     * @param toAddress destination address
-     * @param amount withdraw amount
-     **/
-    event Withdraw(
-        address indexed token,
-        address indexed toAddress,
-        uint256 amount
-    );
 
     /**
      * @param minVotePercent min vote percent
      **/
     event MinVoteUpdated(uint256 minVotePercent);
+
+    /**
+     * @param _MAX_SHARE_HOLDER_VOTING_COUNT max share holder voting count
+     **/
+    event SetMaxShareHolderVotingCount(uint256 _MAX_SHARE_HOLDER_VOTING_COUNT);
+
+    /**
+     * @param _MAX_PRODUCT_VOTING_COUNT max product voting count
+     **/
+    event SetMaxProductVotingCount(uint256 _MAX_PRODUCT_VOTING_COUNT);
+
+    /**
+     * @param _MAX_DEVELOPMENT_VOTING_COUNT max development voting count
+     **/
+    event SetMaxDevelopmentVotingCount(uint256 _MAX_DEVELOPMENT_VOTING_COUNT);
+
+    /**
+     * @param SHARE_HOLDER_ADDRESS share holder address
+     **/
+    event SetShareHolderAddress(address SHARE_HOLDER_ADDRESS);
+
+    /**
+     * @param PRODUCT_ADDRESS product address
+     **/
+    event SetProductAddress(address PRODUCT_ADDRESS);
+
+    /**
+     * @param DEVELOPMMENT_ADDRESS development address
+     **/
+    event SetDevelopmentAddress(address DEVELOPMMENT_ADDRESS);
+
+    modifier onlyShareHolderContract() {
+        require(
+            msg.sender == SHARE_HOLDER_ADDRESS,
+            "Staking: Only share holder contract can access this function"
+        );
+        _;
+    }
+
+    modifier onlyProductContract() {
+        require(
+            msg.sender == PRODUCT_ADDRESS,
+            "Staking: Only product contract can access this function"
+        );
+        _;
+    }
+
+    modifier onlyDevelopmentContract() {
+        require(
+            msg.sender == DEVELOPMENT_ADDRESS,
+            "Staking: Only development contract can access this function"
+        );
+        _;
+    }
 
     constructor(address LOP_, address vLOP_, uint256 minVotePercent_) {
         require(
@@ -97,6 +169,10 @@ contract Staking is Ownable {
 
         _minVotePercent = minVotePercent_;
 
+        _MAX_SHARE_HOLDER_VOTING_COUNT = 5;
+        _MAX_PRODUCT_VOTING_COUNT = 5;
+        _MAX_DEVELOPMENT_VOTING_COUNT = 5;
+
         emit SetLOP(_LOP);
         emit SetVLOP(_vLOP);
     }
@@ -105,11 +181,13 @@ contract Staking is Ownable {
      * @param amount staking amount of LOP
      **/
     function stakeLop(uint256 amount) external {
-        Types.StakeInfo storage _stakeInfo = stakingList[msg.sender];
+        Types.StakeInfo storage _stakeInfo = _stakingList[msg.sender];
         require(amount != 0, "Staking: amount should not be the zero amount");
 
         _stakeInfo.lopAmount += amount;
         IERC20(_LOP).safeTransferFrom(msg.sender, address(this), amount);
+
+        _evaluateShareHolderDao(msg.sender);
 
         emit StakeLop(msg.sender, amount);
     }
@@ -118,44 +196,99 @@ contract Staking is Ownable {
      * @param amount staking amount of vLOP
      **/
     function stakeVLop(uint256 amount) external {
-        Types.StakeInfo storage _stakeInfo = stakingList[msg.sender];
+        Types.StakeInfo storage _stakeInfo = _stakingList[msg.sender];
         require(amount != 0, "Staking: amount should not be the zero amount");
 
         _stakeInfo.vLopAmount += amount;
         IERC20(_vLOP).safeTransferFrom(msg.sender, address(this), amount);
 
+        _evaluateShareHolderDao(msg.sender);
+
         emit StakeVLop(msg.sender, amount);
     }
 
     /**
-     * @param amount withdraw amount of LOP
+     * @dev withdraw LOP token
      **/
-    function withdrawLop(uint256 amount) external {
-        Types.StakeInfo storage _stakeInfo = stakingList[msg.sender];
-        require(amount != 0, "Staking: amount should not be the zero amount");
+    function withdrawLop() external {
+        Types.StakeInfo storage _stakeInfo = _stakingList[msg.sender];
+        require(
+            _stakeInfo.lopAmount > 0,
+            "Staking: amount should not be the zero amount"
+        );
 
-        _stakeInfo.lopAmount -= amount;
+        uint256 _amount = _stakeInfo.lopAmount;
+        _stakeInfo.lopAmount = 0;
+        IERC20(_LOP).safeTransfer(msg.sender, _amount);
 
-        emit WithdrawLop(msg.sender, amount);
+        _evaluateShareHolderDao(msg.sender);
+
+        emit WithdrawLop(msg.sender, _amount);
     }
 
     /**
-     * @param amount withdraw amount of vLOP
+     * @dev withdraw vLOP token
      **/
-    function withdrawVLop(uint256 amount) external {
-        Types.StakeInfo storage _stakeInfo = stakingList[msg.sender];
-        require(amount != 0, "Staking: amount should not be the zero amount");
+    function withdrawVLop() external {
+        Types.StakeInfo storage _stakeInfo = _stakingList[msg.sender];
+        require(
+            _stakeInfo.vLopAmount > 0,
+            "Staking: amount should not be the zero amount"
+        );
 
-        _stakeInfo.vLopAmount -= amount;
+        uint256 _amount = _stakeInfo.vLopAmount;
+        _stakeInfo.vLopAmount = 0;
+        IERC20(_vLOP).safeTransfer(msg.sender, _amount);
 
-        emit WithdrawVLop(msg.sender, amount);
+        _evaluateShareHolderDao(msg.sender);
+
+        emit WithdrawVLop(msg.sender, _amount);
+    }
+
+    /**
+     * @param _staker address of staker
+     * @param _shareHolderProposalId share holder proposal id
+     ** */
+    function addShareHolderVotingId(
+        address _staker,
+        uint256 _shareHolderProposalId
+    ) external onlyShareHolderContract {
+        Types.StakeInfo storage _stakeInfo = _stakingList[_staker];
+
+        _stakeInfo.shareHolderVotingIds.push(_shareHolderProposalId);
+
+        emit AddShareHolderVotingId(_staker, _shareHolderProposalId);
+    }
+
+    /**
+     * @param _staker address of staker
+     * @param _shareHolderProposalId share holder proposal id
+     ** */
+    function removeShareHolderVotingId(
+        address _staker,
+        uint256 _shareHolderProposalId
+    ) external onlyShareHolderContract {
+        Types.StakeInfo storage _stakeInfo = _stakingList[_staker];
+
+        _stakeInfo.shareHolderVotingIds.push(_shareHolderProposalId);
+        uint256 _votingIdsLen = _stakeInfo.shareHolderVotingIds.length;
+        for (uint256 i = 0; i < _votingIdsLen; i++) {
+            if (_stakeInfo.shareHolderVotingIds[i] == _shareHolderProposalId) {
+                _stakeInfo.shareHolderVotingIds[i] = _stakeInfo
+                    .shareHolderVotingIds[_votingIdsLen];
+                _stakeInfo.shareHolderVotingIds.pop();
+                break;
+            }
+        }
+
+        emit AddShareHolderVotingId(_staker, _shareHolderProposalId);
     }
 
     /**
      * @param  toAddress address to receive fee
      * @param amount withdraw native token amount
      **/
-    function withdrawNative(
+    function adminWithdrawNative(
         address payable toAddress,
         uint256 amount
     ) external onlyOwner {
@@ -173,7 +306,7 @@ contract Staking is Ownable {
         (bool success, ) = toAddress.call{value: balance}("");
         require(success, "TreasuryDao: Withdraw failed");
 
-        emit WithdrawNative(toAddress, balance);
+        emit AdminWithdrawNative(toAddress, balance);
     }
 
     /**
@@ -181,7 +314,7 @@ contract Staking is Ownable {
      * @param toAddress to address
      * @param amount withdraw amount
      **/
-    function withdraw(
+    function adminWithdraw(
         address token,
         address payable toAddress,
         uint256 amount
@@ -202,7 +335,56 @@ contract Staking is Ownable {
 
         IERC20(token).safeTransfer(toAddress, amount);
 
-        emit Withdraw(token, toAddress, amount);
+        emit AdminWithdraw(token, toAddress, amount);
+    }
+
+    /**
+     * @param _shareHolderAddress share holder address
+     * @dev only owner can set share holder address
+     **/
+    function setShareHolderAddress(
+        address _shareHolderAddress
+    ) external onlyOwner {
+        require(
+            _shareHolderAddress != address(0),
+            "Staking: share holder address should not be the zero"
+        );
+
+        SHARE_HOLDER_ADDRESS = _shareHolderAddress;
+
+        emit SetShareHolderAddress(SHARE_HOLDER_ADDRESS);
+    }
+
+    /**
+     * @param _productAddress product address
+     * @dev only owner can set product address
+     **/
+    function setProductAddress(address _productAddress) external onlyOwner {
+        require(
+            _productAddress != address(0),
+            "Staking: product address should not be the zero"
+        );
+
+        PRODUCT_ADDRESS = _productAddress;
+
+        emit SetProductAddress(PRODUCT_ADDRESS);
+    }
+
+    /**
+     * @param _developmentAddress development address
+     * @dev only owner can set develometn address
+     **/
+    function setDevelopmentAddress(
+        address _developmentAddress
+    ) external onlyOwner {
+        require(
+            _developmentAddress != address(0),
+            "Staking: development should not be the zero"
+        );
+
+        DEVELOPMENT_ADDRESS = _developmentAddress;
+
+        emit SetDevelopmentAddress(DEVELOPMENT_ADDRESS);
     }
 
     /**
@@ -251,11 +433,62 @@ contract Staking is Ownable {
     }
 
     /**
+     * @param _maxShareHolderVotingCount max shareholder voting count
+     * @dev only owner can set max share holder voting count
+     **/
+    function setMaxShareHolderVotingCount(
+        uint256 _maxShareHolderVotingCount
+    ) external onlyOwner {
+        require(
+            _maxShareHolderVotingCount > 0,
+            "Staking: max share holder voting count should be greater than the zero"
+        );
+
+        _MAX_SHARE_HOLDER_VOTING_COUNT = _maxShareHolderVotingCount;
+
+        emit SetMaxShareHolderVotingCount(_MAX_SHARE_HOLDER_VOTING_COUNT);
+    }
+
+    /**
+     * @param _maxProductVotingCount max product voting count
+     * @dev only owner can set max product voting count
+     **/
+    function setMaxProductVotingCount(
+        uint256 _maxProductVotingCount
+    ) external onlyOwner {
+        require(
+            _maxProductVotingCount > 0,
+            "Staking: max product voting count should be greater than the zero"
+        );
+
+        _MAX_PRODUCT_VOTING_COUNT = _maxProductVotingCount;
+
+        emit SetMaxProductVotingCount(_MAX_PRODUCT_VOTING_COUNT);
+    }
+
+    /**
+     * @param _maxDevelopmentVotingCount max development voting count
+     * @dev only owner can set max development voting count
+     **/
+    function setMaxDevelopmentVotingCount(
+        uint256 _maxDevelopmentVotingCount
+    ) external onlyOwner {
+        require(
+            _maxDevelopmentVotingCount > 0,
+            "Staking: max development voting count should be greater than the zero"
+        );
+
+        _MAX_DEVELOPMENT_VOTING_COUNT = _maxDevelopmentVotingCount;
+
+        emit SetMaxDevelopmentVotingCount(_MAX_DEVELOPMENT_VOTING_COUNT);
+    }
+
+    /**
      * @param staker staker address
      * @dev get stake amount for LOP and vLOP
      **/
     function getStakeAmount(address staker) external view returns (uint256) {
-        return stakingList[staker].lopAmount + stakingList[staker].vLopAmount;
+        return _stakingList[staker].lopAmount + _stakingList[staker].vLopAmount;
     }
 
     function getLOP() external view returns (address) {
@@ -268,5 +501,34 @@ contract Staking is Ownable {
 
     function getMinVotePercent() external view returns (uint256) {
         return _minVotePercent;
+    }
+
+    function getStakingInfo(
+        address staker
+    ) external view returns (Types.StakeInfo memory) {
+        return _stakingList[staker];
+    }
+
+    function MAX_SHARE_HOLDER_VOTING_COUNT() external view returns (uint256) {
+        return _MAX_SHARE_HOLDER_VOTING_COUNT;
+    }
+
+    function MAX_PRODUCT_VOTING_COUNT() external view returns (uint256) {
+        return _MAX_PRODUCT_VOTING_COUNT;
+    }
+
+    function MAX_DEVELOPMENT_VOTING_COUNT() external view returns (uint256) {
+        return _MAX_DEVELOPMENT_VOTING_COUNT;
+    }
+
+    function _evaluateShareHolderDao(address _staker) internal {
+        Types.StakeInfo memory _stakingInfo = _stakingList[_staker];
+
+        for (uint256 i = 0; i < _stakingInfo.shareHolderVotingIds.length; i++) {
+            IShareHolderDao(SHARE_HOLDER_ADDRESS).evaluateVoteAmount(
+                _staker,
+                _stakingInfo.shareHolderVotingIds[i]
+            );
+        }
     }
 }

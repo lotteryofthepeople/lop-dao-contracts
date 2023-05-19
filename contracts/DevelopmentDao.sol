@@ -253,12 +253,11 @@ contract DevelopmentDao is GroupDao {
             "DevelopmentDao: You are not the owner of this proposal"
         );
 
-        Types.ShareHolderInfo memory _shareHolderInfo = IShareHolderDao(
-            shareHolderDao
-        ).getShareHolderInfoByUser(msg.sender);
+        uint256 _shareHolderTotalBudget = IShareHolderDao(shareHolderDao)
+            .totalBudget();
 
         require(
-            _proposal.budget <= _shareHolderInfo.budget,
+            _proposal.budget <= _shareHolderTotalBudget,
             "DevelopmentDao: proposal budget should be less than shareholder budget"
         );
 
