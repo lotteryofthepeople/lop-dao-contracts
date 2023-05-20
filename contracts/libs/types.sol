@@ -48,7 +48,9 @@ library Types {
         ProposalStatus status;
         address owner;
         uint256 voteYes;
+        uint256 voteYesAmount;
         uint256 voteNo;
+        uint256 voteNoAmount;
     }
 
     struct DevelopmentProposal {

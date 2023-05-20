@@ -54,7 +54,7 @@ contract GroupDao is Ownable {
      * @param next next staking address
      * @dev emitted when dupdate staking address by only owner
      **/
-    event StakingAddressUpdated(address indexed prev, address indexed next);
+    event SetStakingAddress(address indexed prev, address indexed next);
 
     /**
      * @param toAddress to address
@@ -81,11 +81,19 @@ contract GroupDao is Ownable {
         _;
     }
 
-    modifier checkTokenHolder() {
+    modifier onlyTokenHolder() {
         require(
             IERC20(getLOP()).balanceOf(msg.sender) > 0 ||
                 IERC20(getVLOP()).balanceOf(msg.sender) > 0,
             "GroupDao: You have not enough LOP or vLOP token"
+        );
+        _;
+    }
+
+    modifier onlyStakingContract() {
+        require(
+            stakingAddress == msg.sender,
+            "GroupDao: Only staking contract can access this function"
         );
         _;
     }
@@ -103,7 +111,7 @@ contract GroupDao is Ownable {
 
         memberIndex.increment();
 
-        emit StakingAddressUpdated(address(0), stakingAddress);
+        emit SetStakingAddress(address(0), stakingAddress);
     }
 
     /**
@@ -179,7 +187,7 @@ contract GroupDao is Ownable {
 
         stakingAddress = _stakingAddress;
 
-        emit StakingAddressUpdated(_prevStakingAddress, stakingAddress);
+        emit SetStakingAddress(_prevStakingAddress, stakingAddress);
     }
 
     /**

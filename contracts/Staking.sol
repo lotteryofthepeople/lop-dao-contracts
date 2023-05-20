@@ -67,6 +67,27 @@ contract Staking is Ownable {
         uint256 shareHolderProposalId
     );
     /**
+     * @param staker address of staker
+     * @param shareHolderProposalId share holder proposal id
+     **/
+    event RemoveShareHolderVotingId(
+        address indexed staker,
+        uint256 shareHolderProposalId
+    );
+    /**
+     * @param staker address of staker
+     * @param productProposalId share holder proposal id
+     **/
+    event AddProductVotingId(address indexed staker, uint256 productProposalId);
+    /**
+     * @param staker address of staker
+     * @param productProposalId share holder proposal id
+     **/
+    event RemoveProductVotingId(
+        address indexed staker,
+        uint256 productProposalId
+    );
+    /**
      * @param toAddress to address
      * @param amount withdraw amount
      **/
@@ -281,7 +302,47 @@ contract Staking is Ownable {
             }
         }
 
-        emit AddShareHolderVotingId(_staker, _shareHolderProposalId);
+        emit RemoveShareHolderVotingId(_staker, _shareHolderProposalId);
+    }
+
+    /**
+     * @param _staker address of staker
+     * @param _productProposalId share holder proposal id
+     ** */
+    function addProductVotingId(
+        address _staker,
+        uint256 _productProposalId
+    ) external onlyProductContract {
+        Types.StakeInfo storage _stakeInfo = _stakingList[_staker];
+
+        _stakeInfo.productVotingIds.push(_productProposalId);
+
+        emit AddProductVotingId(_staker, _productProposalId);
+    }
+
+    /**
+     * @param _staker address of staker
+     * @param _productProposalId share holder proposal id
+     ** */
+    function removeProductVotingId(
+        address _staker,
+        uint256 _productProposalId
+    ) external onlyProductContract {
+        Types.StakeInfo storage _stakeInfo = _stakingList[_staker];
+
+        _stakeInfo.productVotingIds.push(_productProposalId);
+        uint256 _votingIdsLen = _stakeInfo.productVotingIds.length;
+        for (uint256 i = 0; i < _votingIdsLen; i++) {
+            if (_stakeInfo.productVotingIds[i] == _productProposalId) {
+                _stakeInfo.productVotingIds[i] = _stakeInfo.productVotingIds[
+                    _votingIdsLen
+                ];
+                _stakeInfo.productVotingIds.pop();
+                break;
+            }
+        }
+
+        emit RemoveProductVotingId(_staker, _productProposalId);
     }
 
     /**
@@ -528,6 +589,13 @@ contract Staking is Ownable {
             IShareHolderDao(SHARE_HOLDER_ADDRESS).evaluateVoteAmount(
                 _staker,
                 _stakingInfo.shareHolderVotingIds[i]
+            );
+        }
+
+        for (uint256 i = 0; i < _stakingInfo.productVotingIds.length; i++) {
+            IShareHolderDao(PRODUCT_ADDRESS).evaluateVoteAmount(
+                _staker,
+                _stakingInfo.productVotingIds[i]
             );
         }
     }

@@ -154,7 +154,7 @@ contract DevelopmentDao is GroupDao {
         string calldata _metadata,
         uint256 _productId,
         uint256 _budget
-    ) external checkTokenHolder {
+    ) external onlyTokenHolder {
         require(
             bytes(_metadata).length > 0,
             "DevelopmentDao: metadata should not be empty string"
@@ -199,7 +199,7 @@ contract DevelopmentDao is GroupDao {
     /**
      * @param _proposalId proposal id
      **/
-    function voteYes(uint256 _proposalId) external checkTokenHolder {
+    function voteYes(uint256 _proposalId) external onlyTokenHolder {
         Types.DevelopmentProposal storage _proposal = proposals[_proposalId];
 
         require(
@@ -220,7 +220,7 @@ contract DevelopmentDao is GroupDao {
     /**
      * @param _proposalId proposal id
      **/
-    function voteNo(uint256 _proposalId) external checkTokenHolder {
+    function voteNo(uint256 _proposalId) external onlyTokenHolder {
         Types.DevelopmentProposal storage _proposal = proposals[_proposalId];
 
         require(
@@ -242,7 +242,7 @@ contract DevelopmentDao is GroupDao {
      * @param _proposalId proposal id
      * @dev only proposal creator can execute one's proposal
      **/
-    function execute(uint256 _proposalId) external checkTokenHolder {
+    function execute(uint256 _proposalId) external onlyTokenHolder {
         Types.DevelopmentProposal storage _proposal = proposals[_proposalId];
         require(
             _proposal.status == Types.ProposalStatus.CREATED,
@@ -289,7 +289,7 @@ contract DevelopmentDao is GroupDao {
     function escrowCreateProposal(
         uint256 _proposalId,
         uint256 _amount
-    ) external checkTokenHolder {
+    ) external onlyTokenHolder {
         Types.DevelopmentProposal storage _proposal = proposals[_proposalId];
 
         require(
@@ -328,7 +328,7 @@ contract DevelopmentDao is GroupDao {
     /**
      * @param escrowId escrow proposal id
      **/
-    function escrowVoteYes(uint256 escrowId) external checkTokenHolder {
+    function escrowVoteYes(uint256 escrowId) external onlyTokenHolder {
         Types.EscrowProposal storage _escrowProposal = escrowProposals[
             escrowId
         ];
@@ -352,7 +352,7 @@ contract DevelopmentDao is GroupDao {
     /**
      * @param escrowId escrow proposal id
      **/
-    function escrowVoteNo(uint256 escrowId) external checkTokenHolder {
+    function escrowVoteNo(uint256 escrowId) external onlyTokenHolder {
         Types.EscrowProposal storage _escrowProposal = escrowProposals[
             escrowId
         ];
@@ -373,7 +373,7 @@ contract DevelopmentDao is GroupDao {
         emit EscrowVoteNo(escrowId, msg.sender);
     }
 
-    function escrowVoteExecute(uint256 escrowId) external checkTokenHolder {
+    function escrowVoteExecute(uint256 escrowId) external onlyTokenHolder {
         Types.EscrowProposal storage _escrowProposal = escrowProposals[
             escrowId
         ];

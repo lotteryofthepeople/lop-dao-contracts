@@ -30,4 +30,14 @@ interface IStaking {
         address _staker,
         uint256 _shareHolderProposalId
     ) external;
+
+    function addProductVotingId(
+        address _staker,
+        uint256 _productProposalId
+    ) external;
+
+    function removeProductVotingId(
+        address _staker,
+        uint256 _productProposalId
+    ) external;
 }

@@ -88,6 +88,8 @@ contract ShareHolderDao is Ownable {
     /**
      * @param staker address staker
      * @param proposalId proposal id
+     * @param oldAmount old amount
+     * @param newAmount new amount
      **/
     event EvaluateVoteAmount(
         address indexed staker,
@@ -318,6 +320,12 @@ contract ShareHolderDao is Ownable {
             emit Activated(proposalId);
         } else {
             _proposal.status = Types.ProposalStatus.CANCELLED;
+
+            IStaking(stakingAddress).removeShareHolderVotingId(
+                msg.sender,
+                proposalId
+            );
+
             emit Cancelled(proposalId);
         }
     }

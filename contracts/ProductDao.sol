@@ -4,15 +4,15 @@ import "./Basics/GroupDao.sol";
 
 contract ProductDao is GroupDao {
     using Counters for Counters.Counter;
+
+    // proposal id => Product proposal
+    mapping(uint256 => Types.ProductProposal) private _proposals;
+
     // proposal index
     Counters.Counter public proposalIndex;
 
-    // proposal id => Product proposal
-    mapping(uint256 => Types.ProductProposal) public _proposals;
-    // proposal owner => proposal status
-    mapping(address => Types.ProposalStatus) public proposalStatus;
-    // user address => proposal id => status
-    mapping(address => mapping(uint256 => bool)) public isVoted;
+    // user address => proposal id => voting info
+    mapping(address => mapping(uint256 => Types.VotingInfo)) public votingList;
 
     /**
      * @param creator proposal creator
@@ -26,16 +26,26 @@ contract ProductDao is GroupDao {
     );
 
     /**
-     * @param proposalId proposal id
      * @param voter voter
+     * @param proposalId proposal id
+     * @param tokenAmount LOP + vLOP token amount when vote
      **/
-    event VoteYes(uint256 proposalId, address indexed voter);
+    event VoteYes(
+        address indexed voter,
+        uint256 proposalId,
+        uint256 tokenAmount
+    );
 
     /**
-     * @param proposalId proposal id
      * @param voter voter
+     * @param proposalId proposal id
+     * @param tokenAmount LOP + vLOP token amount when vote
      **/
-    event VoteNo(uint256 proposalId, address indexed voter);
+    event VoteNo(
+        address indexed voter,
+        uint256 proposalId,
+        uint256 tokenAmount
+    );
 
     /**
      * @param proposalId propoal id
@@ -50,15 +60,23 @@ contract ProductDao is GroupDao {
     event Cancelled(uint256 proposalId, address indexed canceller);
 
     /**
-     * @param stakingAddress staking address
+     * @param staker address staker
+     * @param proposalId proposal id
+     * @param oldAmount old amount
+     * @param newAmount new amount
      **/
-    event SetStakingAddress(uint256 stakingAddress);
+    event EvaluateVoteAmount(
+        address indexed staker,
+        uint256 proposalId,
+        uint256 oldAmount,
+        uint256 newAmount
+    );
 
     /**
      * @param _stakingAddress staking address
      **/
     constructor(address _stakingAddress) GroupDao(_stakingAddress) {
-        memberIndex.current();
+        memberIndex.increment();
     }
 
     /**
@@ -66,14 +84,10 @@ contract ProductDao is GroupDao {
      **/
     function createProposal(
         string calldata _metadata
-    ) external checkTokenHolder {
+    ) external onlyTokenHolder {
         require(
             bytes(_metadata).length > 0,
             "ProdcutDao: metadata should not be empty string"
-        );
-        require(
-            proposalStatus[msg.sender] == Types.ProposalStatus.NONE,
-            "ProductDao: You already created a new proposal"
         );
 
         uint256 _proposalIndex = proposalIndex.current();
@@ -83,11 +97,12 @@ contract ProductDao is GroupDao {
             status: Types.ProposalStatus.CREATED,
             owner: msg.sender,
             voteYes: 0,
-            voteNo: 0
+            voteYesAmount: 0,
+            voteNo: 0,
+            voteNoAmount: 0
         });
 
         _proposals[_proposalIndex] = _proposal;
-        proposalStatus[msg.sender] = Types.ProposalStatus.CREATED;
 
         proposalIndex.increment();
 
@@ -97,50 +112,80 @@ contract ProductDao is GroupDao {
     /**
      * @param proposalId proposal id
      **/
-    function voteYes(uint256 proposalId) external checkTokenHolder {
+    function voteYes(uint256 proposalId) external onlyTokenHolder {
         Types.ProductProposal storage _proposal = _proposals[proposalId];
+        Types.VotingInfo storage _votingInfo = votingList[msg.sender][
+            proposalId
+        ];
+        Types.StakeInfo memory _stakeInfo = IStaking(stakingAddress)
+            .getStakingInfo(msg.sender);
 
-        require(
-            !isVoted[msg.sender][proposalId],
-            "ProductDao: proposal is already voted"
-        );
+        require(!_votingInfo.isVoted, "ProductDao: proposal is already voted");
         require(
             _proposal.status == Types.ProposalStatus.CREATED,
             "ProductDao: proposal is not created status"
         );
+        require(
+            _stakeInfo.productVotingIds.length <
+                IStaking(stakingAddress).MAX_PRODUCT_VOTING_COUNT(),
+            "ProductDao: Your voting count reach out max product voting count"
+        );
+
+        uint256 _tokenAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
 
         _proposal.voteYes++;
-        isVoted[msg.sender][proposalId] = true;
+        _proposal.voteYesAmount += _tokenAmount;
 
-        emit VoteYes(proposalId, msg.sender);
+        _votingInfo.isVoted = true;
+        _votingInfo.voteAmount = _tokenAmount;
+        _votingInfo.voteType = true;
+
+        IStaking(stakingAddress).addProductVotingId(msg.sender, proposalId);
+
+        emit VoteYes(msg.sender, proposalId, _tokenAmount);
     }
 
     /**
      * @param proposalId proposal id
      **/
-    function voteNo(uint256 proposalId) external checkTokenHolder {
+    function voteNo(uint256 proposalId) external onlyTokenHolder {
         Types.ProductProposal storage _proposal = _proposals[proposalId];
+        Types.VotingInfo storage _votingInfo = votingList[msg.sender][
+            proposalId
+        ];
+        Types.StakeInfo memory _stakeInfo = IStaking(stakingAddress)
+            .getStakingInfo(msg.sender);
 
-        require(
-            !isVoted[msg.sender][proposalId],
-            "ProductDao: proposal is already voted"
-        );
+        require(!_votingInfo.isVoted, "ProductDao: proposal is already voted");
         require(
             _proposal.status == Types.ProposalStatus.CREATED,
             "ProductDao: proposal is not created status"
         );
+        require(
+            _stakeInfo.productVotingIds.length <
+                IStaking(stakingAddress).MAX_PRODUCT_VOTING_COUNT(),
+            "ProductDao: Your voting count reach out max product voting count"
+        );
+
+        uint256 _tokenAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
 
         _proposal.voteNo++;
-        isVoted[msg.sender][proposalId] = true;
+        _proposal.voteNoAmount += _tokenAmount;
 
-        emit VoteNo(proposalId, msg.sender);
+        _votingInfo.isVoted = true;
+        _votingInfo.voteAmount = _tokenAmount;
+        _votingInfo.voteType = true;
+
+        IStaking(stakingAddress).addProductVotingId(msg.sender, proposalId);
+
+        emit VoteNo(msg.sender, proposalId, _tokenAmount);
     }
 
     /**
      * @param proposalId proposal id
      * @dev only proposal creator can execute one's proposal
      **/
-    function execute(uint256 proposalId) external checkTokenHolder {
+    function execute(uint256 proposalId) external onlyTokenHolder {
         Types.ProductProposal storage _proposal = _proposals[proposalId];
         require(
             _proposal.status == Types.ProposalStatus.CREATED,
@@ -151,18 +196,71 @@ contract ProductDao is GroupDao {
             "ProductDao: You are not the owner of this proposal"
         );
 
-        uint256 _voteYesPercent = (_proposal.voteYes * 100) /
-            memberIndex.current();
-
-        proposalStatus[msg.sender] = Types.ProposalStatus.NONE;
+        uint256 _voteYesPercent = (_proposal.voteYesAmount * 100) /
+            (_proposal.voteYesAmount + _proposal.voteNoAmount);
 
         if (_voteYesPercent >= getMinVotePercent()) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
+
+            IStaking(stakingAddress).removeProductVotingId(
+                msg.sender,
+                proposalId
+            );
+
             emit Activated(proposalId, msg.sender);
         } else {
             _proposal.status = Types.ProposalStatus.CANCELLED;
+
+            IStaking(stakingAddress).removeProductVotingId(
+                msg.sender,
+                proposalId
+            );
+
             emit Cancelled(proposalId, msg.sender);
         }
+    }
+
+    function evaluateVoteAmount(
+        address staker,
+        uint256 proposalId
+    ) external onlyStakingContract {
+        require(
+            staker != address(0),
+            "ProductDao: staker should not be the zero address"
+        );
+
+        Types.VotingInfo storage _votingInfo = votingList[staker][proposalId];
+        Types.ProductProposal storage _productProposal = _proposals[proposalId];
+        Types.StakeInfo memory _stakeInfo = IStaking(stakingAddress)
+            .getStakingInfo(staker);
+
+        uint256 _newStakeAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
+        uint256 _oldStakeAmount = _productProposal.voteYesAmount;
+
+        if (_votingInfo.isVoted) {
+            if (_votingInfo.voteType) {
+                // vote yes
+                _productProposal.voteYesAmount =
+                    _productProposal.voteYesAmount +
+                    _newStakeAmount -
+                    _votingInfo.voteAmount;
+            } else {
+                // vote no
+                _productProposal.voteNoAmount =
+                    _productProposal.voteNoAmount +
+                    _newStakeAmount -
+                    _votingInfo.voteAmount;
+            }
+
+            _votingInfo.voteAmount = _newStakeAmount;
+        }
+
+        emit EvaluateVoteAmount(
+            staker,
+            proposalId,
+            _oldStakeAmount,
+            _newStakeAmount
+        );
     }
 
     function getProposalById(
