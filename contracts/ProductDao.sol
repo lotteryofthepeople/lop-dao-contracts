@@ -200,10 +200,15 @@ contract ProductDao is GroupDao {
         uint256 _voteYesPercent = (_proposal.voteYesAmount * 100) /
             (_proposal.voteYesAmount + _proposal.voteNoAmount);
 
-        uint256 _voteNoPercent = (_proposal.voteNoAmount * 100) /
-            (_proposal.voteYesAmount + _proposal.voteNoAmount);
+        uint256 _totalYesPercent = (_proposal.voteYesAmount * 100) /
+            (IERC20(IStaking(stakingAddress).getVLOP()).totalSupply() +
+                IERC20(IStaking(stakingAddress).getLOP()).totalSupply());
 
-        if (!(_voteYesPercent > 50 || _voteNoPercent > 50)) {
+        uint256 _totalNoPercent = (_proposal.voteNoAmount * 100) /
+            (IERC20(IStaking(stakingAddress).getVLOP()).totalSupply() +
+                IERC20(IStaking(stakingAddress).getLOP()).totalSupply());
+
+        if (!(_totalYesPercent > 50 || _totalNoPercent > 50)) {
             require(
                 (IStaking(stakingAddress).getProposalExpiredDate() +
                     _proposal.createdAt) >= block.timestamp,
