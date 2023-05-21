@@ -30,6 +30,7 @@ library Types {
         uint256 voteYesAmount;
         uint256 voteNo;
         uint256 voteNoAmount;
+        uint256 createdAt;
     }
 
     struct JoinRequest {
@@ -51,6 +52,7 @@ library Types {
         uint256 voteYesAmount;
         uint256 voteNo;
         uint256 voteNoAmount;
+        uint256 createdAt;
     }
 
     struct DevelopmentProposal {
@@ -63,6 +65,7 @@ library Types {
         uint256 voteNoAmount;
         uint256 productId;
         uint256 budget;
+        uint256 createdAt;
     }
 
     struct EscrowProposal {
@@ -73,6 +76,7 @@ library Types {
         uint256 voteYesAmount;
         uint256 voteNo;
         uint256 voteNoAmount;
+        uint256 createdAt;
     }
 
     struct StakeInfo {

@@ -23,6 +23,8 @@ contract Staking is Ownable {
     // development dao address
     address public DEVELOPMENT_ADDRESS;
 
+    uint256 private _PROPOSAL_EXPIRED_DATE;
+
     // max shareholder voting count
     uint256 private _MAX_SHARE_HOLDER_VOTING_COUNT;
     // max prodcut voting count
@@ -151,6 +153,11 @@ contract Staking is Ownable {
     event MinVoteUpdated(uint256 minVotePercent);
 
     /**
+     * @param _proposalExpiredDate proposal expired date
+     **/
+    event SetProposalExpiredDate(uint256 _proposalExpiredDate);
+
+    /**
      * @param _MAX_SHARE_HOLDER_VOTING_COUNT max share holder voting count
      **/
     event SetMaxShareHolderVotingCount(uint256 _MAX_SHARE_HOLDER_VOTING_COUNT);
@@ -228,11 +235,15 @@ contract Staking is Ownable {
         _MAX_PRODUCT_VOTING_COUNT = 5;
         _MAX_DEVELOPMENT_VOTING_COUNT = 5;
 
+        // 14 days
+        _PROPOSAL_EXPIRED_DATE = 14 * 24 * 60 * 60;
+
         emit SetLOP(_LOP);
         emit SetVLOP(_vLOP);
         emit SetMaxShareHolderVotingCount(_MAX_SHARE_HOLDER_VOTING_COUNT);
         emit SetMaxDevelopmentVotingCount(_MAX_DEVELOPMENT_VOTING_COUNT);
         emit SetMaxProductVotingCount(_MAX_PRODUCT_VOTING_COUNT);
+        emit SetProposalExpiredDate(_PROPOSAL_EXPIRED_DATE);
     }
 
     /**
@@ -614,6 +625,22 @@ contract Staking is Ownable {
     }
 
     /**
+     * @param _propsalExpiredDate max shareholder voting count
+     **/
+    function setProposalExpriedDate(
+        uint256 _propsalExpiredDate
+    ) external onlyOwner {
+        require(
+            _propsalExpiredDate > 0,
+            "Staking: proposal expired should be greater than the zero"
+        );
+
+        _PROPOSAL_EXPIRED_DATE = _propsalExpiredDate;
+
+        emit SetProposalExpiredDate(_propsalExpiredDate);
+    }
+
+    /**
      * @param _maxShareHolderVotingCount max shareholder voting count
      * @dev only owner can set max share holder voting count
      **/
@@ -700,6 +727,10 @@ contract Staking is Ownable {
 
     function MAX_DEVELOPMENT_VOTING_COUNT() external view returns (uint256) {
         return _MAX_DEVELOPMENT_VOTING_COUNT;
+    }
+
+    function getProposalExpiredDate() external view returns (uint256) {
+        return _PROPOSAL_EXPIRED_DATE;
     }
 
     function _evaluateShareHolderDao(address _staker) internal {

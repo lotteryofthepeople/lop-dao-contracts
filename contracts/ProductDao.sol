@@ -99,7 +99,8 @@ contract ProductDao is GroupDao {
             voteYes: 0,
             voteYesAmount: 0,
             voteNo: 0,
-            voteNoAmount: 0
+            voteNoAmount: 0,
+            createdAt: 0
         });
 
         _proposals[_proposalIndex] = _proposal;
@@ -198,6 +199,17 @@ contract ProductDao is GroupDao {
 
         uint256 _voteYesPercent = (_proposal.voteYesAmount * 100) /
             (_proposal.voteYesAmount + _proposal.voteNoAmount);
+
+        uint256 _voteNoPercent = (_proposal.voteNoAmount * 100) /
+            (_proposal.voteYesAmount + _proposal.voteNoAmount);
+
+        if (!(_voteYesPercent > 50 || _voteNoPercent > 50)) {
+            require(
+                (IStaking(stakingAddress).getProposalExpiredDate() +
+                    _proposal.createdAt) >= block.timestamp,
+                "ProductDao: You can execute proposal after expired"
+            );
+        }
 
         if (_voteYesPercent >= getMinVotePercent()) {
             _proposal.status = Types.ProposalStatus.ACTIVE;

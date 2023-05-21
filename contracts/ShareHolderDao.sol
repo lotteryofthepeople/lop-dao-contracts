@@ -195,7 +195,8 @@ contract ShareHolderDao is Ownable {
             voteYes: 0,
             voteYesAmount: 0,
             voteNo: 0,
-            voteNoAmount: 0
+            voteNoAmount: 0,
+            createdAt: block.timestamp
         });
 
         uint256 _proposalIndex = proposalIndex.current();
@@ -301,6 +302,17 @@ contract ShareHolderDao is Ownable {
 
         uint256 _voteYesPercent = (_proposal.voteYesAmount * 100) /
             (_proposal.voteYesAmount + _proposal.voteNoAmount);
+
+        uint256 _voteNoPercent = (_proposal.voteNoAmount * 100) /
+            (_proposal.voteYesAmount + _proposal.voteNoAmount);
+
+        if (!(_voteYesPercent > 50 || _voteNoPercent > 50)) {
+            require(
+                (IStaking(stakingAddress).getProposalExpiredDate() +
+                    _proposal.createdAt) >= block.timestamp,
+                "ShareHolderDao: You can execute proposal after expired"
+            );
+        }
 
         if (_voteYesPercent >= IStaking(stakingAddress).getMinVotePercent()) {
             _proposal.status = Types.ProposalStatus.ACTIVE;

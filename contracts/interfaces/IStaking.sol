@@ -21,6 +21,8 @@ interface IStaking {
 
     function MAX_DEVELOPMENT_VOTING_COUNT() external view returns (uint256);
 
+    function getProposalExpiredDate() external view returns (uint256);
+
     function addShareHolderVotingId(
         address _staker,
         uint256 _shareHolderProposalId

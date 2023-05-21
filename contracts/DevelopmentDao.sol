@@ -228,7 +228,8 @@ contract DevelopmentDao is GroupDao {
             voteNo: 0,
             voteNoAmount: 0,
             productId: _productId,
-            budget: _budget
+            budget: _budget,
+            createdAt: block.timestamp
         });
 
         proposals[_proposalIndex] = _proposal;
@@ -354,6 +355,17 @@ contract DevelopmentDao is GroupDao {
         uint256 _voteYesPercent = (_proposal.voteYesAmount * 100) /
             (_proposal.voteYesAmount + _proposal.voteNoAmount);
 
+        uint256 _voteNoPercent = (_proposal.voteNoAmount * 100) /
+            (_proposal.voteYesAmount + _proposal.voteNoAmount);
+
+        if (!(_voteYesPercent > 50 || _voteNoPercent > 50)) {
+            require(
+                (IStaking(stakingAddress).getProposalExpiredDate() +
+                    _proposal.createdAt) >= block.timestamp,
+                "DevelopmentDao: You can execute proposal after expired"
+            );
+        }
+
         if (_voteYesPercent >= IStaking(stakingAddress).getMinVotePercent()) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
 
@@ -415,7 +427,8 @@ contract DevelopmentDao is GroupDao {
             voteYes: 0,
             voteYesAmount: 0,
             voteNo: 0,
-            voteNoAmount: 0
+            voteNoAmount: 0,
+            createdAt: block.timestamp
         });
 
         uint256 _escrowProposalIndex = escrowProposalIndex.current();
@@ -524,6 +537,17 @@ contract DevelopmentDao is GroupDao {
 
         uint256 _voteYesPercent = (_escrowProposal.voteYesAmount * 100) /
             (_escrowProposal.voteYesAmount + _escrowProposal.voteNoAmount);
+
+        uint256 _voteNoPercent = (_escrowProposal.voteNoAmount * 100) /
+            (_escrowProposal.voteYesAmount + _escrowProposal.voteNoAmount);
+
+        if (!(_voteYesPercent > 50 || _voteNoPercent > 50)) {
+            require(
+                (IStaking(stakingAddress).getProposalExpiredDate() +
+                    _escrowProposal.createdAt) >= block.timestamp,
+                "DevelopmentDao: You can execute proposal after expired"
+            );
+        }
 
         if (_voteYesPercent >= IStaking(stakingAddress).getMinVotePercent()) {
             _escrowProposal.status = Types.ProposalStatus.ACTIVE;
