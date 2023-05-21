@@ -33,13 +33,14 @@ contract DevelopmentDao is GroupDao {
      * @param creator proposal creator
      * @param proposalIndex proposal index
      * @param metadata metadata URL
-     * @param _productId product id
+     * @param productId product id
+     * @param budget budget
      **/
     event ProposalCreated(
         address indexed creator,
         uint256 proposalIndex,
         string metadata,
-        uint256 _productId,
+        uint256 productId,
         uint256 budget
     );
 
@@ -382,6 +383,7 @@ contract DevelopmentDao is GroupDao {
 
     /**
      * @param _proposalId proposal id
+     * @param _amount proposal amount
      **/
     function escrowCreateProposal(
         uint256 _proposalId,
@@ -391,7 +393,7 @@ contract DevelopmentDao is GroupDao {
 
         require(
             _proposal.status == Types.ProposalStatus.ACTIVE,
-            "DevelopmentDao: Proposal status is not activated"
+            "DevelopmentDao: Proposal status is not active"
         );
         require(
             _proposal.owner == msg.sender,
@@ -443,7 +445,7 @@ contract DevelopmentDao is GroupDao {
             "DevelopmentDao: You already voted this proposal"
         );
         require(
-            _stakeInfo.developmentVotingIds.length <
+            _stakeInfo.developmentEscrowVotingIds.length <
                 IStaking(stakingAddress).MAX_DEVELOPMENT_VOTING_COUNT(),
             "DevelopmentDao: Your voting count reach out max share holder voting count"
         );
@@ -484,7 +486,7 @@ contract DevelopmentDao is GroupDao {
             "DevelopmentDao: You already voted this proposal"
         );
         require(
-            _stakeInfo.developmentVotingIds.length <
+            _stakeInfo.developmentEscrowVotingIds.length <
                 IStaking(stakingAddress).MAX_DEVELOPMENT_VOTING_COUNT(),
             "DevelopmentDao: Your voting count reach out max share holder voting count"
         );
@@ -561,7 +563,7 @@ contract DevelopmentDao is GroupDao {
             .getStakingInfo(staker);
 
         uint256 _newStakeAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
-        uint256 _oldStakeAmount = _developmentProposal.voteYesAmount;
+        uint256 _oldStakeAmount = _votingInfo.voteAmount;
 
         if (_votingInfo.isVoted) {
             if (_votingInfo.voteType) {
@@ -569,13 +571,13 @@ contract DevelopmentDao is GroupDao {
                 _developmentProposal.voteYesAmount =
                     _developmentProposal.voteYesAmount +
                     _newStakeAmount -
-                    _votingInfo.voteAmount;
+                    _oldStakeAmount;
             } else {
                 // vote no
                 _developmentProposal.voteNoAmount =
                     _developmentProposal.voteNoAmount +
                     _newStakeAmount -
-                    _votingInfo.voteAmount;
+                    _oldStakeAmount;
             }
 
             _votingInfo.voteAmount = _newStakeAmount;
@@ -609,7 +611,7 @@ contract DevelopmentDao is GroupDao {
             .getStakingInfo(staker);
 
         uint256 _newStakeAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
-        uint256 _oldStakeAmount = _developmentEscrowProposal.voteYesAmount;
+        uint256 _oldStakeAmount = _escrowVotingInfo.voteAmount;
 
         if (_escrowVotingInfo.isVoted) {
             if (_escrowVotingInfo.voteType) {
@@ -617,13 +619,13 @@ contract DevelopmentDao is GroupDao {
                 _developmentEscrowProposal.voteYesAmount =
                     _developmentEscrowProposal.voteYesAmount +
                     _newStakeAmount -
-                    _escrowVotingInfo.voteAmount;
+                    _oldStakeAmount;
             } else {
                 // vote no
                 _developmentEscrowProposal.voteNoAmount =
                     _developmentEscrowProposal.voteNoAmount +
                     _newStakeAmount -
-                    _escrowVotingInfo.voteAmount;
+                    _oldStakeAmount;
             }
 
             _escrowVotingInfo.voteAmount = _newStakeAmount;

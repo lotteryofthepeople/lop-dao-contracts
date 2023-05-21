@@ -330,50 +330,6 @@ contract ShareHolderDao is Ownable {
         }
     }
 
-    function evaluateVoteAmount(
-        address staker,
-        uint256 proposalId
-    ) external onlyStakingContract {
-        require(
-            staker != address(0),
-            "ShareHolderDao: staker should not be the zero address"
-        );
-
-        Types.VotingInfo storage _votingInfo = votingList[staker][proposalId];
-        Types.ShareHolderProposal storage _shareHolderProposal = proposals[
-            proposalId
-        ];
-        Types.StakeInfo memory _stakeInfo = IStaking(stakingAddress)
-            .getStakingInfo(staker);
-        uint256 _newStakeAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
-        uint256 _oldStakeAmount = _shareHolderProposal.voteYesAmount;
-
-        if (_votingInfo.isVoted) {
-            if (_votingInfo.voteType) {
-                // vote yes
-                _shareHolderProposal.voteYesAmount =
-                    _shareHolderProposal.voteYesAmount +
-                    _newStakeAmount -
-                    _votingInfo.voteAmount;
-            } else {
-                // vote no
-                _shareHolderProposal.voteNoAmount =
-                    _shareHolderProposal.voteNoAmount +
-                    _newStakeAmount -
-                    _votingInfo.voteAmount;
-            }
-
-            _votingInfo.voteAmount = _newStakeAmount;
-        }
-
-        emit EvaluateVoteAmount(
-            staker,
-            proposalId,
-            _oldStakeAmount,
-            _newStakeAmount
-        );
-    }
-
     /**
      * @param _stakingAddress staking address
      * @dev only owner can set staking address
@@ -485,5 +441,53 @@ contract ShareHolderDao is Ownable {
         IERC20(token).safeTransfer(toAddress, amount);
 
         emit Withdraw(token, toAddress, amount);
+    }
+
+    /**
+     * @param staker staker address
+     * @param proposalId proposal id
+     **/
+    function evaluateVoteAmount(
+        address staker,
+        uint256 proposalId
+    ) external onlyStakingContract {
+        require(
+            staker != address(0),
+            "ShareHolderDao: staker should not be the zero address"
+        );
+
+        Types.VotingInfo storage _votingInfo = votingList[staker][proposalId];
+        Types.ShareHolderProposal storage _shareHolderProposal = proposals[
+            proposalId
+        ];
+        Types.StakeInfo memory _stakeInfo = IStaking(stakingAddress)
+            .getStakingInfo(staker);
+        uint256 _newStakeAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
+        uint256 _oldStakeAmount = _votingInfo.voteAmount;
+
+        if (_votingInfo.isVoted) {
+            if (_votingInfo.voteType) {
+                // vote yes
+                _shareHolderProposal.voteYesAmount =
+                    _shareHolderProposal.voteYesAmount +
+                    _newStakeAmount -
+                    _oldStakeAmount;
+            } else {
+                // vote no
+                _shareHolderProposal.voteNoAmount =
+                    _shareHolderProposal.voteNoAmount +
+                    _newStakeAmount -
+                    _oldStakeAmount;
+            }
+
+            _votingInfo.voteAmount = _newStakeAmount;
+        }
+
+        emit EvaluateVoteAmount(
+            staker,
+            proposalId,
+            _oldStakeAmount,
+            _newStakeAmount
+        );
     }
 }

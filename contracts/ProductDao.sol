@@ -235,7 +235,7 @@ contract ProductDao is GroupDao {
             .getStakingInfo(staker);
 
         uint256 _newStakeAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
-        uint256 _oldStakeAmount = _productProposal.voteYesAmount;
+        uint256 _oldStakeAmount = _votingInfo.voteAmount;
 
         if (_votingInfo.isVoted) {
             if (_votingInfo.voteType) {
@@ -243,13 +243,13 @@ contract ProductDao is GroupDao {
                 _productProposal.voteYesAmount =
                     _productProposal.voteYesAmount +
                     _newStakeAmount -
-                    _votingInfo.voteAmount;
+                    _oldStakeAmount;
             } else {
                 // vote no
                 _productProposal.voteNoAmount =
                     _productProposal.voteNoAmount +
                     _newStakeAmount -
-                    _votingInfo.voteAmount;
+                    _oldStakeAmount;
             }
 
             _votingInfo.voteAmount = _newStakeAmount;

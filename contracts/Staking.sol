@@ -230,6 +230,9 @@ contract Staking is Ownable {
 
         emit SetLOP(_LOP);
         emit SetVLOP(_vLOP);
+        emit SetMaxShareHolderVotingCount(_MAX_SHARE_HOLDER_VOTING_COUNT);
+        emit SetMaxDevelopmentVotingCount(_MAX_DEVELOPMENT_VOTING_COUNT);
+        emit SetMaxProductVotingCount(_MAX_PRODUCT_VOTING_COUNT);
     }
 
     /**
@@ -364,12 +367,11 @@ contract Staking is Ownable {
     ) external onlyProductContract {
         Types.StakeInfo storage _stakeInfo = _stakingList[_staker];
 
-        _stakeInfo.productVotingIds.push(_productProposalId);
         uint256 _votingIdsLen = _stakeInfo.productVotingIds.length;
         for (uint256 i = 0; i < _votingIdsLen; i++) {
             if (_stakeInfo.productVotingIds[i] == _productProposalId) {
                 _stakeInfo.productVotingIds[i] = _stakeInfo.productVotingIds[
-                    _votingIdsLen
+                    _votingIdsLen - 1
                 ];
                 _stakeInfo.productVotingIds.pop();
                 break;
@@ -404,12 +406,11 @@ contract Staking is Ownable {
     ) external onlyDevelopmentContract {
         Types.StakeInfo storage _stakeInfo = _stakingList[_staker];
 
-        _stakeInfo.developmentVotingIds.push(_developmentProposalId);
         uint256 _votingIdsLen = _stakeInfo.developmentVotingIds.length;
         for (uint256 i = 0; i < _votingIdsLen; i++) {
             if (_stakeInfo.developmentVotingIds[i] == _developmentProposalId) {
                 _stakeInfo.developmentVotingIds[i] = _stakeInfo
-                    .developmentVotingIds[_votingIdsLen];
+                    .developmentVotingIds[_votingIdsLen - 1];
                 _stakeInfo.developmentVotingIds.pop();
                 break;
             }
@@ -448,9 +449,6 @@ contract Staking is Ownable {
     ) external onlyDevelopmentContract {
         Types.StakeInfo storage _stakeInfo = _stakingList[_staker];
 
-        _stakeInfo.developmentEscrowVotingIds.push(
-            _developmentEscrowProposalId
-        );
         uint256 _votingIdsLen = _stakeInfo.developmentEscrowVotingIds.length;
         for (uint256 i = 0; i < _votingIdsLen; i++) {
             if (
@@ -458,7 +456,7 @@ contract Staking is Ownable {
                 _developmentEscrowProposalId
             ) {
                 _stakeInfo.developmentEscrowVotingIds[i] = _stakeInfo
-                    .developmentEscrowVotingIds[_votingIdsLen];
+                    .developmentEscrowVotingIds[_votingIdsLen - 1];
                 _stakeInfo.developmentEscrowVotingIds.pop();
                 break;
             }
@@ -484,10 +482,10 @@ contract Staking is Ownable {
 
         uint256 balance = address(this).balance;
 
-        require(amount <= balance, "TreasuryDao: No balance to withdraw");
+        require(amount <= balance, "Staking: No balance to withdraw");
 
         (bool success, ) = toAddress.call{value: balance}("");
-        require(success, "TreasuryDao: Withdraw failed");
+        require(success, "Staking: Withdraw failed");
 
         emit AdminWithdrawNative(toAddress, balance);
     }
