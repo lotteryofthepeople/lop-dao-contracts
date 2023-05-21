@@ -58,7 +58,9 @@ library Types {
         ProposalStatus status;
         address owner;
         uint256 voteYes;
+        uint256 voteYesAmount;
         uint256 voteNo;
+        uint256 voteNoAmount;
         uint256 productId;
         uint256 budget;
     }
@@ -68,7 +70,9 @@ library Types {
         address owner;
         uint256 budget;
         uint256 voteYes;
+        uint256 voteYesAmount;
         uint256 voteNo;
+        uint256 voteNoAmount;
     }
 
     struct StakeInfo {
@@ -77,6 +81,7 @@ library Types {
         uint256[] shareHolderVotingIds;
         uint256[] productVotingIds;
         uint256[] developmentVotingIds;
+        uint256[] developmentEscrowVotingIds;
     }
 
     struct VotingInfo {

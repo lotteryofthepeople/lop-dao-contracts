@@ -90,6 +90,16 @@ contract GroupDao is Ownable {
         _;
     }
 
+    modifier onlyStaker() {
+        Types.StakeInfo memory _stakeInfo = IStaking(stakingAddress)
+            .getStakingInfo(msg.sender);
+        require(
+            (_stakeInfo.lopAmount + _stakeInfo.vLopAmount) > 0,
+            "GroupDao: You have to stake LOP or vLOP token to access this contract"
+        );
+        _;
+    }
+
     modifier onlyStakingContract() {
         require(
             stakingAddress == msg.sender,

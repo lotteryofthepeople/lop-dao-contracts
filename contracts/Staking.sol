@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./libs/types.sol";
 import "./interfaces/IShareHolderDao.sol";
+import "./interfaces/IProductDao.sol";
+import "./interfaces/IDevelopmentDao.sol";
 
 contract Staking is Ownable {
     using SafeERC20 for IERC20;
@@ -76,16 +78,48 @@ contract Staking is Ownable {
     );
     /**
      * @param staker address of staker
-     * @param productProposalId share holder proposal id
+     * @param productProposalId product proposal id
      **/
     event AddProductVotingId(address indexed staker, uint256 productProposalId);
     /**
      * @param staker address of staker
-     * @param productProposalId share holder proposal id
+     * @param productProposalId product proposal id
      **/
     event RemoveProductVotingId(
         address indexed staker,
         uint256 productProposalId
+    );
+    /**
+     * @param staker address of staker
+     * @param developmentProposalId development proposal id
+     **/
+    event AddDevelopmentVotingId(
+        address indexed staker,
+        uint256 developmentProposalId
+    );
+    /**
+     * @param staker address of staker
+     * @param developmentProposalId development proposal id
+     **/
+    event RemoveDevelopmentVotingId(
+        address indexed staker,
+        uint256 developmentProposalId
+    );
+    /**
+     * @param staker address of staker
+     * @param developmentEscrowProposalId development escrow proposal id
+     **/
+    event AddDevelopmentEscrowVotingId(
+        address indexed staker,
+        uint256 developmentEscrowProposalId
+    );
+    /**
+     * @param staker address of staker
+     * @param developmentEscrowProposalId development escrow proposal id
+     **/
+    event RemoveDevelopmentEscrowVotingId(
+        address indexed staker,
+        uint256 developmentEscrowProposalId
     );
     /**
      * @param toAddress to address
@@ -307,7 +341,7 @@ contract Staking is Ownable {
 
     /**
      * @param _staker address of staker
-     * @param _productProposalId share holder proposal id
+     * @param _productProposalId product proposal id
      ** */
     function addProductVotingId(
         address _staker,
@@ -322,7 +356,7 @@ contract Staking is Ownable {
 
     /**
      * @param _staker address of staker
-     * @param _productProposalId share holder proposal id
+     * @param _productProposalId product proposal id
      ** */
     function removeProductVotingId(
         address _staker,
@@ -343,6 +377,94 @@ contract Staking is Ownable {
         }
 
         emit RemoveProductVotingId(_staker, _productProposalId);
+    }
+
+    /**
+     * @param _staker address of staker
+     * @param _developmentProposalId development proposal id
+     ** */
+    function addDevelopmentVotingId(
+        address _staker,
+        uint256 _developmentProposalId
+    ) external onlyDevelopmentContract {
+        Types.StakeInfo storage _stakeInfo = _stakingList[_staker];
+
+        _stakeInfo.developmentVotingIds.push(_developmentProposalId);
+
+        emit AddDevelopmentVotingId(_staker, _developmentProposalId);
+    }
+
+    /**
+     * @param _staker address of staker
+     * @param _developmentProposalId development proposal id
+     ** */
+    function removeDevelopmentVotingId(
+        address _staker,
+        uint256 _developmentProposalId
+    ) external onlyDevelopmentContract {
+        Types.StakeInfo storage _stakeInfo = _stakingList[_staker];
+
+        _stakeInfo.developmentVotingIds.push(_developmentProposalId);
+        uint256 _votingIdsLen = _stakeInfo.developmentVotingIds.length;
+        for (uint256 i = 0; i < _votingIdsLen; i++) {
+            if (_stakeInfo.developmentVotingIds[i] == _developmentProposalId) {
+                _stakeInfo.developmentVotingIds[i] = _stakeInfo
+                    .developmentVotingIds[_votingIdsLen];
+                _stakeInfo.developmentVotingIds.pop();
+                break;
+            }
+        }
+
+        emit RemoveDevelopmentVotingId(_staker, _developmentProposalId);
+    }
+
+    /**
+     * @param _staker address of staker
+     * @param _developmentEscrowProposalId development proposal id
+     ** */
+    function addDevelopmentEscrowVotingId(
+        address _staker,
+        uint256 _developmentEscrowProposalId
+    ) external onlyDevelopmentContract {
+        Types.StakeInfo storage _stakeInfo = _stakingList[_staker];
+
+        _stakeInfo.developmentEscrowVotingIds.push(
+            _developmentEscrowProposalId
+        );
+
+        emit AddDevelopmentEscrowVotingId(
+            _staker,
+            _developmentEscrowProposalId
+        );
+    }
+
+    /**
+     * @param _staker address of staker
+     * @param _developmentEscrowProposalId development proposal id
+     ** */
+    function removeDevelopmentEscrowVotingId(
+        address _staker,
+        uint256 _developmentEscrowProposalId
+    ) external onlyDevelopmentContract {
+        Types.StakeInfo storage _stakeInfo = _stakingList[_staker];
+
+        _stakeInfo.developmentEscrowVotingIds.push(
+            _developmentEscrowProposalId
+        );
+        uint256 _votingIdsLen = _stakeInfo.developmentEscrowVotingIds.length;
+        for (uint256 i = 0; i < _votingIdsLen; i++) {
+            if (
+                _stakeInfo.developmentEscrowVotingIds[i] ==
+                _developmentEscrowProposalId
+            ) {
+                _stakeInfo.developmentEscrowVotingIds[i] = _stakeInfo
+                    .developmentEscrowVotingIds[_votingIdsLen];
+                _stakeInfo.developmentEscrowVotingIds.pop();
+                break;
+            }
+        }
+
+        emit RemoveDevelopmentVotingId(_staker, _developmentEscrowProposalId);
     }
 
     /**
@@ -593,9 +715,27 @@ contract Staking is Ownable {
         }
 
         for (uint256 i = 0; i < _stakingInfo.productVotingIds.length; i++) {
-            IShareHolderDao(PRODUCT_ADDRESS).evaluateVoteAmount(
+            IProductDao(PRODUCT_ADDRESS).evaluateVoteAmount(
                 _staker,
                 _stakingInfo.productVotingIds[i]
+            );
+        }
+
+        for (uint256 i = 0; i < _stakingInfo.developmentVotingIds.length; i++) {
+            IDevelopmentDao(DEVELOPMENT_ADDRESS).evaluateVoteAmount(
+                _staker,
+                _stakingInfo.developmentVotingIds[i]
+            );
+        }
+
+        for (
+            uint256 i = 0;
+            i < _stakingInfo.developmentEscrowVotingIds.length;
+            i++
+        ) {
+            IDevelopmentDao(DEVELOPMENT_ADDRESS).evaluateEscrowVoteAmount(
+                _staker,
+                _stakingInfo.developmentEscrowVotingIds[i]
             );
         }
     }

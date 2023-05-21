@@ -19,16 +19,15 @@ contract DevelopmentDao is GroupDao {
 
     // proposal id => DevelopmentProposal
     mapping(uint256 => Types.DevelopmentProposal) public proposals;
-    // proposal owner => proposal status
-    mapping(address => Types.ProposalStatus) public proposalStatus;
-    // user address => proposal id => status
-    mapping(address => mapping(uint256 => bool)) public isVoted;
+    // user address => proposal id => voting info
+    mapping(address => mapping(uint256 => Types.VotingInfo)) public votingList;
     // proposal id => escrow amount
-    mapping(uint256 => uint256) public escrow;
+    mapping(uint256 => uint256) public escrowBudgets;
     // escrow proposal id => escrow proposal
     mapping(uint256 => Types.EscrowProposal) public escrowProposals;
     // user address => escrow proposal id => status
-    mapping(address => mapping(uint256 => bool)) public escrowIsVoted;
+    mapping(address => mapping(uint256 => Types.VotingInfo))
+        public escrowVotingList;
 
     /**
      * @param creator proposal creator
@@ -45,16 +44,26 @@ contract DevelopmentDao is GroupDao {
     );
 
     /**
-     * @param proposalId proposal id
      * @param voter voter
+     * @param proposalId proposal id
+     * @param tokenAmount LOP + vLOP token amount when vote
      **/
-    event VoteYes(uint256 proposalId, address indexed voter);
+    event VoteYes(
+        address indexed voter,
+        uint256 proposalId,
+        uint256 tokenAmount
+    );
 
     /**
-     * @param proposalId proposal id
      * @param voter voter
+     * @param proposalId proposal id
+     * @param tokenAmount LOP + vLOP token amount when vote
      **/
-    event VoteNo(uint256 proposalId, address indexed voter);
+    event VoteNo(
+        address indexed voter,
+        uint256 proposalId,
+        uint256 tokenAmount
+    );
 
     /**
      * @param proposalId propoal id
@@ -106,16 +115,52 @@ contract DevelopmentDao is GroupDao {
     );
 
     /**
-     * @param escrowId escrow proposal id
      * @param voter voter address
+     * @param escrowId escrow proposal id
+     * @param tokenAmount LOP + vLOP token amount when vote
      **/
-    event EscrowVoteYes(uint256 escrowId, address indexed voter);
+    event EscrowVoteYes(
+        address indexed voter,
+        uint256 escrowId,
+        uint256 tokenAmount
+    );
 
     /**
-     * @param escrowId escrow proposal id
      * @param voter voter address
+     * @param escrowId escrow proposal id
+     * @param tokenAmount LOP + vLOP token amount when vote
      **/
-    event EscrowVoteNo(uint256 escrowId, address indexed voter);
+    event EscrowVoteNo(
+        address indexed voter,
+        uint256 escrowId,
+        uint256 tokenAmount
+    );
+
+    /**
+     * @param staker address staker
+     * @param proposalId proposal id
+     * @param oldAmount old amount
+     * @param newAmount new amount
+     **/
+    event EvaluateVoteAmount(
+        address indexed staker,
+        uint256 proposalId,
+        uint256 oldAmount,
+        uint256 newAmount
+    );
+
+    /**
+     * @param staker address staker
+     * @param escrowProposalId proposal id
+     * @param oldAmount old amount
+     * @param newAmount new amount
+     **/
+    event EvaluateEscrowVoteAmount(
+        address indexed staker,
+        uint256 escrowProposalId,
+        uint256 oldAmount,
+        uint256 newAmount
+    );
 
     /**
      * @param _shareHolderDao share holder dao address
@@ -139,7 +184,7 @@ contract DevelopmentDao is GroupDao {
 
         productDao = _productDao;
 
-        memberIndex.current();
+        memberIndex.increment();
 
         emit ShareHolderDaoUpdated(address(0), shareHolderDao);
         emit ProductDaoUpdated(address(0), productDao);
@@ -155,19 +200,20 @@ contract DevelopmentDao is GroupDao {
         uint256 _productId,
         uint256 _budget
     ) external onlyTokenHolder {
+        Types.ProductProposal memory _prposal = IProductDao(productDao)
+            .getProposalById(_productId);
+
         require(
             bytes(_metadata).length > 0,
             "DevelopmentDao: metadata should not be empty string"
         );
         require(
-            proposalStatus[msg.sender] == Types.ProposalStatus.NONE,
-            "DevelopmentDao: You already created a new proposal"
-        );
-        Types.ProductProposal memory _prposal = IProductDao(productDao)
-            .getProposalById(_productId);
-        require(
             _prposal.status == Types.ProposalStatus.ACTIVE,
             "DevelopmentDao: proposal is not active now"
+        );
+        require(
+            _budget > 0,
+            "DevelopmentDao: budget should be greater than the zero"
         );
 
         uint256 _proposalIndex = proposalIndex.current();
@@ -177,13 +223,14 @@ contract DevelopmentDao is GroupDao {
             status: Types.ProposalStatus.CREATED,
             owner: msg.sender,
             voteYes: 0,
+            voteYesAmount: 0,
             voteNo: 0,
+            voteNoAmount: 0,
             productId: _productId,
             budget: _budget
         });
 
         proposals[_proposalIndex] = _proposal;
-        proposalStatus[msg.sender] = Types.ProposalStatus.CREATED;
 
         proposalIndex.increment();
 
@@ -199,43 +246,85 @@ contract DevelopmentDao is GroupDao {
     /**
      * @param _proposalId proposal id
      **/
-    function voteYes(uint256 _proposalId) external onlyTokenHolder {
+    function voteYes(uint256 _proposalId) external onlyStaker {
         Types.DevelopmentProposal storage _proposal = proposals[_proposalId];
+        Types.VotingInfo storage _votingInfo = votingList[msg.sender][
+            _proposalId
+        ];
+        Types.StakeInfo memory _stakeInfo = IStaking(stakingAddress)
+            .getStakingInfo(msg.sender);
 
         require(
-            !isVoted[msg.sender][_proposalId],
+            _proposal.status == Types.ProposalStatus.CREATED,
+            "DevelopmentDao: Proposal is not created"
+        );
+        require(
+            !_votingInfo.isVoted,
             "DevelopmentDao: proposal is already voted"
         );
         require(
-            _proposal.status == Types.ProposalStatus.CREATED,
-            "DevelopmentDao: proposal is not created status"
+            _stakeInfo.developmentVotingIds.length <
+                IStaking(stakingAddress).MAX_DEVELOPMENT_VOTING_COUNT(),
+            "DevelopmentDao: Your voting count reach out max share holder voting count"
         );
 
-        _proposal.voteYes++;
-        isVoted[msg.sender][_proposalId] = true;
+        uint256 _tokenAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
 
-        emit VoteYes(_proposalId, msg.sender);
+        _proposal.voteYes++;
+        _proposal.voteYesAmount += _tokenAmount;
+
+        _votingInfo.isVoted = true;
+        _votingInfo.voteAmount = _tokenAmount;
+        _votingInfo.voteType = true;
+
+        IStaking(stakingAddress).addDevelopmentVotingId(
+            msg.sender,
+            _proposalId
+        );
+
+        emit VoteYes(msg.sender, _proposalId, _tokenAmount);
     }
 
     /**
      * @param _proposalId proposal id
      **/
-    function voteNo(uint256 _proposalId) external onlyTokenHolder {
+    function voteNo(uint256 _proposalId) external onlyStaker {
         Types.DevelopmentProposal storage _proposal = proposals[_proposalId];
+        Types.VotingInfo storage _votingInfo = votingList[msg.sender][
+            _proposalId
+        ];
+        Types.StakeInfo memory _stakeInfo = IStaking(stakingAddress)
+            .getStakingInfo(msg.sender);
 
         require(
-            !isVoted[msg.sender][_proposalId],
+            _proposal.status == Types.ProposalStatus.CREATED,
+            "DevelopmentDao: Proposal is not created"
+        );
+        require(
+            !_votingInfo.isVoted,
             "DevelopmentDao: proposal is already voted"
         );
         require(
-            _proposal.status == Types.ProposalStatus.CREATED,
-            "DevelopmentDao: proposal is not created status"
+            _stakeInfo.developmentVotingIds.length <
+                IStaking(stakingAddress).MAX_DEVELOPMENT_VOTING_COUNT(),
+            "DevelopmentDao: Your voting count reach out max share holder voting count"
         );
 
-        _proposal.voteNo++;
-        isVoted[msg.sender][_proposalId] = true;
+        uint256 _tokenAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
 
-        emit VoteNo(_proposalId, msg.sender);
+        _proposal.voteNo++;
+        _proposal.voteNoAmount += _tokenAmount;
+
+        _votingInfo.isVoted = true;
+        _votingInfo.voteAmount = _tokenAmount;
+        _votingInfo.voteType = false;
+
+        IStaking(stakingAddress).addDevelopmentVotingId(
+            msg.sender,
+            _proposalId
+        );
+
+        emit VoteNo(msg.sender, _proposalId, _tokenAmount);
     }
 
     /**
@@ -261,10 +350,8 @@ contract DevelopmentDao is GroupDao {
             "DevelopmentDao: proposal budget should be less than shareholder budget"
         );
 
-        uint256 _voteYesPercent = (_proposal.voteYes * 100) /
-            memberIndex.current();
-
-        proposalStatus[msg.sender] = Types.ProposalStatus.NONE;
+        uint256 _voteYesPercent = (_proposal.voteYesAmount * 100) /
+            (_proposal.voteYesAmount + _proposal.voteNoAmount);
 
         if (_voteYesPercent >= IStaking(stakingAddress).getMinVotePercent()) {
             _proposal.status = Types.ProposalStatus.ACTIVE;
@@ -273,11 +360,21 @@ contract DevelopmentDao is GroupDao {
 
             IERC20LOP(getLOP()).mint(address(this), _proposal.budget);
 
-            escrow[_proposalId] = _proposal.budget;
+            escrowBudgets[_proposalId] = _proposal.budget;
+
+            IStaking(stakingAddress).removeDevelopmentVotingId(
+                msg.sender,
+                _proposalId
+            );
 
             emit Activated(_proposalId, msg.sender);
         } else {
             _proposal.status = Types.ProposalStatus.CANCELLED;
+
+            IStaking(stakingAddress).removeDevelopmentVotingId(
+                msg.sender,
+                _proposalId
+            );
 
             emit Cancelled(_proposalId, msg.sender);
         }
@@ -305,7 +402,7 @@ contract DevelopmentDao is GroupDao {
             "DevelopmentDao: amount should be greater than the zero"
         );
         require(
-            escrow[_proposalId] >= _amount,
+            escrowBudgets[_proposalId] >= _amount,
             "DevelopmentDao: amount should be less than the escrow budget"
         );
 
@@ -314,7 +411,9 @@ contract DevelopmentDao is GroupDao {
             owner: msg.sender,
             budget: _amount,
             voteYes: 0,
-            voteNo: 0
+            voteYesAmount: 0,
+            voteNo: 0,
+            voteNoAmount: 0
         });
 
         uint256 _escrowProposalIndex = escrowProposalIndex.current();
@@ -332,21 +431,38 @@ contract DevelopmentDao is GroupDao {
         Types.EscrowProposal storage _escrowProposal = escrowProposals[
             escrowId
         ];
+        Types.StakeInfo memory _stakeInfo = IStaking(stakingAddress)
+            .getStakingInfo(msg.sender);
 
         require(
             _escrowProposal.status == Types.ProposalStatus.CREATED,
             "DevelopmentDao: escrow proposal is not created"
         );
         require(
-            !escrowIsVoted[msg.sender][escrowId],
+            !escrowVotingList[msg.sender][escrowId].isVoted,
             "DevelopmentDao: You already voted this proposal"
         );
+        require(
+            _stakeInfo.developmentVotingIds.length <
+                IStaking(stakingAddress).MAX_DEVELOPMENT_VOTING_COUNT(),
+            "DevelopmentDao: Your voting count reach out max share holder voting count"
+        );
 
-        escrowIsVoted[msg.sender][escrowId] = true;
+        uint256 _tokenAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
+
+        escrowVotingList[msg.sender][escrowId].isVoted = true;
+        escrowVotingList[msg.sender][escrowId].voteAmount = _tokenAmount;
+        escrowVotingList[msg.sender][escrowId].voteType = true;
 
         _escrowProposal.voteYes += 1;
+        _escrowProposal.voteYesAmount += _tokenAmount;
 
-        emit EscrowVoteYes(escrowId, msg.sender);
+        IStaking(stakingAddress).addDevelopmentEscrowVotingId(
+            msg.sender,
+            escrowId
+        );
+
+        emit EscrowVoteYes(msg.sender, escrowId, _tokenAmount);
     }
 
     /**
@@ -356,21 +472,38 @@ contract DevelopmentDao is GroupDao {
         Types.EscrowProposal storage _escrowProposal = escrowProposals[
             escrowId
         ];
+        Types.StakeInfo memory _stakeInfo = IStaking(stakingAddress)
+            .getStakingInfo(msg.sender);
 
         require(
             _escrowProposal.status == Types.ProposalStatus.CREATED,
             "DevelopmentDao: escrow proposal is not created"
         );
         require(
-            !escrowIsVoted[msg.sender][escrowId],
+            !escrowVotingList[msg.sender][escrowId].isVoted,
             "DevelopmentDao: You already voted this proposal"
         );
+        require(
+            _stakeInfo.developmentVotingIds.length <
+                IStaking(stakingAddress).MAX_DEVELOPMENT_VOTING_COUNT(),
+            "DevelopmentDao: Your voting count reach out max share holder voting count"
+        );
 
-        escrowIsVoted[msg.sender][escrowId] = true;
+        uint256 _tokenAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
+
+        escrowVotingList[msg.sender][escrowId].isVoted = true;
+        escrowVotingList[msg.sender][escrowId].voteAmount = _tokenAmount;
+        escrowVotingList[msg.sender][escrowId].voteType = false;
 
         _escrowProposal.voteNo += 1;
+        _escrowProposal.voteNoAmount += _tokenAmount;
 
-        emit EscrowVoteNo(escrowId, msg.sender);
+        IStaking(stakingAddress).addDevelopmentEscrowVotingId(
+            msg.sender,
+            escrowId
+        );
+
+        emit EscrowVoteNo(msg.sender, escrowId, _tokenAmount);
     }
 
     function escrowVoteExecute(uint256 escrowId) external onlyTokenHolder {
@@ -387,13 +520,13 @@ contract DevelopmentDao is GroupDao {
             "DevelopmentDao: only proposal owner can execute"
         );
 
-        uint256 _voteYesPercent = (_escrowProposal.voteYes * 100) /
-            memberIndex.current();
+        uint256 _voteYesPercent = (_escrowProposal.voteYesAmount * 100) /
+            (_escrowProposal.voteYesAmount + _escrowProposal.voteNoAmount);
 
         if (_voteYesPercent >= IStaking(stakingAddress).getMinVotePercent()) {
             _escrowProposal.status = Types.ProposalStatus.ACTIVE;
 
-            escrow[escrowId] -= _escrowProposal.budget;
+            escrowBudgets[escrowId] -= _escrowProposal.budget;
 
             require(
                 IERC20LOP(IStaking(stakingAddress).getLOP()).transfer(
@@ -409,5 +542,98 @@ contract DevelopmentDao is GroupDao {
 
             emit EscrowCancelled(escrowId, msg.sender);
         }
+    }
+
+    function evaluateVoteAmount(
+        address staker,
+        uint256 proposalId
+    ) external onlyStakingContract {
+        require(
+            staker != address(0),
+            "DevelopmentDao: staker should not be the zero address"
+        );
+
+        Types.VotingInfo storage _votingInfo = votingList[staker][proposalId];
+        Types.DevelopmentProposal storage _developmentProposal = proposals[
+            proposalId
+        ];
+        Types.StakeInfo memory _stakeInfo = IStaking(stakingAddress)
+            .getStakingInfo(staker);
+
+        uint256 _newStakeAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
+        uint256 _oldStakeAmount = _developmentProposal.voteYesAmount;
+
+        if (_votingInfo.isVoted) {
+            if (_votingInfo.voteType) {
+                // vote yes
+                _developmentProposal.voteYesAmount =
+                    _developmentProposal.voteYesAmount +
+                    _newStakeAmount -
+                    _votingInfo.voteAmount;
+            } else {
+                // vote no
+                _developmentProposal.voteNoAmount =
+                    _developmentProposal.voteNoAmount +
+                    _newStakeAmount -
+                    _votingInfo.voteAmount;
+            }
+
+            _votingInfo.voteAmount = _newStakeAmount;
+        }
+
+        emit EvaluateVoteAmount(
+            staker,
+            proposalId,
+            _oldStakeAmount,
+            _newStakeAmount
+        );
+    }
+
+    function evaluateEscrowVoteAmount(
+        address staker,
+        uint256 escrowProposalId
+    ) external onlyStakingContract {
+        require(
+            staker != address(0),
+            "DevelopmentDao: staker should not be the zero address"
+        );
+
+        Types.VotingInfo storage _escrowVotingInfo = escrowVotingList[staker][
+            escrowProposalId
+        ];
+        Types.EscrowProposal
+            storage _developmentEscrowProposal = escrowProposals[
+                escrowProposalId
+            ];
+        Types.StakeInfo memory _stakeInfo = IStaking(stakingAddress)
+            .getStakingInfo(staker);
+
+        uint256 _newStakeAmount = _stakeInfo.lopAmount + _stakeInfo.vLopAmount;
+        uint256 _oldStakeAmount = _developmentEscrowProposal.voteYesAmount;
+
+        if (_escrowVotingInfo.isVoted) {
+            if (_escrowVotingInfo.voteType) {
+                // vote yes
+                _developmentEscrowProposal.voteYesAmount =
+                    _developmentEscrowProposal.voteYesAmount +
+                    _newStakeAmount -
+                    _escrowVotingInfo.voteAmount;
+            } else {
+                // vote no
+                _developmentEscrowProposal.voteNoAmount =
+                    _developmentEscrowProposal.voteNoAmount +
+                    _newStakeAmount -
+                    _escrowVotingInfo.voteAmount;
+            }
+
+            _escrowVotingInfo.voteAmount = _newStakeAmount;
+        }
+
+        emit EvaluateEscrowVoteAmount(
+            staker,
+            escrowProposalId,
+            _oldStakeAmount,
+            _newStakeAmount
+        );
     }
 }

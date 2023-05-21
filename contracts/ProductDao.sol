@@ -112,7 +112,7 @@ contract ProductDao is GroupDao {
     /**
      * @param proposalId proposal id
      **/
-    function voteYes(uint256 proposalId) external onlyTokenHolder {
+    function voteYes(uint256 proposalId) external onlyStaker {
         Types.ProductProposal storage _proposal = _proposals[proposalId];
         Types.VotingInfo storage _votingInfo = votingList[msg.sender][
             proposalId
@@ -148,7 +148,7 @@ contract ProductDao is GroupDao {
     /**
      * @param proposalId proposal id
      **/
-    function voteNo(uint256 proposalId) external onlyTokenHolder {
+    function voteNo(uint256 proposalId) external onlyStaker {
         Types.ProductProposal storage _proposal = _proposals[proposalId];
         Types.VotingInfo storage _votingInfo = votingList[msg.sender][
             proposalId
