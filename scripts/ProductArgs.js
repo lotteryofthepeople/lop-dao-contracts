@@ -1,3 +1,3 @@
-const SHAREHOLDER_DAO = "0x186067a6d5426F01f7404DDE9B2c1B4d562321d2";
+const stakingAddress = "0x335D9115453bfAb9982e2563D653409d051BD828";
 
-module.exports = [SHAREHOLDER_DAO];
+module.exports = [stakingAddress];

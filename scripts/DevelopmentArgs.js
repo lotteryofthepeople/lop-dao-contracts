@@ -1,4 +1,5 @@
-const shareHolderDao = "0x186067a6d5426F01f7404DDE9B2c1B4d562321d2";
-const productDao = "0xf7D0C72ea0C5Ab2FD7A0518281Cb74A2549b716F";
+const shareHolderDao = "0xA2a0b8cF242DAa4D90178430A58D1F054B85d053";
+const productDao = "0x195dcCBEBAB5256eC8c6D8c719b512Cb4C2e342e";
+const staking = "0x335D9115453bfAb9982e2563D653409d051BD828";
 
-module.exports = [shareHolderDao, productDao];
+module.exports = [shareHolderDao, productDao, staking];
