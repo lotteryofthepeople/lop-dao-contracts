@@ -314,7 +314,7 @@ contract ShareHolderDao is Ownable {
         if (!(_totalYesPercent > 50 || _totalNoPercent > 50)) {
             require(
                 (IStaking(stakingAddress).getProposalExpiredDate() +
-                    _proposal.createdAt) >= block.timestamp,
+                    _proposal.createdAt) < block.timestamp,
                 "ShareHolderDao: You can execute proposal after expired"
             );
         }

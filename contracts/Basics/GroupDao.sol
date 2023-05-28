@@ -177,7 +177,7 @@ contract GroupDao is Ownable {
         );
 
         _joinRequest.status = Types.JoinRequestStatus.PASSED;
-        _member.status == Types.MemberStatus.JOINED;
+        _member.status = Types.MemberStatus.JOINED;
 
         memberIndex.increment();
 

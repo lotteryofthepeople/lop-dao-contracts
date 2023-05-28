@@ -248,7 +248,7 @@ contract DevelopmentDao is GroupDao {
     /**
      * @param _proposalId proposal id
      **/
-    function voteYes(uint256 _proposalId) external onlyStaker {
+    function voteYes(uint256 _proposalId) external onlyStaker checkMember(msg.sender) {
         Types.DevelopmentProposal storage _proposal = proposals[_proposalId];
         Types.VotingInfo storage _votingInfo = votingList[msg.sender][
             _proposalId
@@ -290,7 +290,7 @@ contract DevelopmentDao is GroupDao {
     /**
      * @param _proposalId proposal id
      **/
-    function voteNo(uint256 _proposalId) external onlyStaker {
+    function voteNo(uint256 _proposalId) external onlyStaker checkMember(msg.sender) {
         Types.DevelopmentProposal storage _proposal = proposals[_proposalId];
         Types.VotingInfo storage _votingInfo = votingList[msg.sender][
             _proposalId
@@ -366,7 +366,7 @@ contract DevelopmentDao is GroupDao {
         if (!(_totalYesPercent > 50 || _totalNoPercent > 50)) {
             require(
                 (IStaking(stakingAddress).getProposalExpiredDate() +
-                    _proposal.createdAt) >= block.timestamp,
+                    _proposal.createdAt) < block.timestamp,
                 "DevelopmentDao: You can execute proposal after expired"
             );
         }

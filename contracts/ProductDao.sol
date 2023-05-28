@@ -100,7 +100,7 @@ contract ProductDao is GroupDao {
             voteYesAmount: 0,
             voteNo: 0,
             voteNoAmount: 0,
-            createdAt: 0
+            createdAt: block.timestamp
         });
 
         _proposals[_proposalIndex] = _proposal;
@@ -113,7 +113,7 @@ contract ProductDao is GroupDao {
     /**
      * @param proposalId proposal id
      **/
-    function voteYes(uint256 proposalId) external onlyStaker {
+    function voteYes(uint256 proposalId) external onlyStaker checkMember(msg.sender) {
         Types.ProductProposal storage _proposal = _proposals[proposalId];
         Types.VotingInfo storage _votingInfo = votingList[msg.sender][
             proposalId
@@ -149,7 +149,7 @@ contract ProductDao is GroupDao {
     /**
      * @param proposalId proposal id
      **/
-    function voteNo(uint256 proposalId) external onlyStaker {
+    function voteNo(uint256 proposalId) external onlyStaker checkMember(msg.sender) {
         Types.ProductProposal storage _proposal = _proposals[proposalId];
         Types.VotingInfo storage _votingInfo = votingList[msg.sender][
             proposalId
@@ -211,7 +211,7 @@ contract ProductDao is GroupDao {
         if (!(_totalYesPercent > 50 || _totalNoPercent > 50)) {
             require(
                 (IStaking(stakingAddress).getProposalExpiredDate() +
-                    _proposal.createdAt) >= block.timestamp,
+                    _proposal.createdAt) < block.timestamp,
                 "ProductDao: You can execute proposal after expired"
             );
         }

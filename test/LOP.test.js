@@ -19,10 +19,12 @@ describe("LOP TestCase", () => {
 
     erc20LOPFactory = await ethers.getContractFactory("ERC20LOP");
     erc20VLOPFactory = await ethers.getContractFactory("ERC20VLOP");
+    usdcFactory = await ethers.getContractFactory("USDC");
     shareHolderDaoFactory = await ethers.getContractFactory("ShareHolderDao");
     productDaoFactory = await ethers.getContractFactory("ProductDao");
-    usdcFactory = await ethers.getContractFactory("USDC");
+    developmentDaoFactory = await ethers.getContractFactory("DevelopmentDao");
     treasuryDaoFactory = await ethers.getContractFactory("TreasuryDao");
+    stakingFactory = await ethers.getContractFactory("Staking");
 
     erc20LOPContract = await erc20LOPFactory
       .connect(owner)
@@ -32,7 +34,9 @@ describe("LOP TestCase", () => {
       .connect(owner)
       .deploy(initialSupply);
 
-    shareHolderContract = await shareHolderDaoFactory
+    usdcContract = await usdcFactory.connect(owner).deploy();
+
+    stakingContract = await stakingFactory
       .connect(owner)
       .deploy(
         erc20LOPContract.address,
@@ -40,15 +44,37 @@ describe("LOP TestCase", () => {
         minVotePercent
       );
 
+    shareHolderContract = await shareHolderDaoFactory
+      .connect(owner)
+      .deploy(stakingContract.address);
+
     productDaoContract = await productDaoFactory
       .connect(owner)
-      .deploy(shareHolderContract.address);
+      .deploy(stakingContract.address);
 
-    usdcContract = await usdcFactory.connect(owner).deploy();
+    developmentDaoContract = await developmentDaoFactory
+      .connect(owner)
+      .deploy(
+        shareHolderContract.address,
+        productDaoContract.address,
+        stakingContract.address
+      );
 
     treasuryDaoContract = await treasuryDaoFactory
       .connect(owner)
-      .deploy(usdcContract.address, shareHolderContract.address);
+      .deploy(usdcContract.address, stakingContract.address);
+
+    await stakingContract
+      .connect(owner)
+      .setShareHolderAddress(shareHolderContract.address);
+
+    await stakingContract
+      .connect(owner)
+      .setProductAddress(productDaoContract.address);
+
+    await stakingContract
+      .connect(owner)
+      .setDevelopmentAddress(developmentDaoContract.address);
   });
 
   describe("Check ERC20LOP contract", () => {
@@ -126,24 +152,6 @@ describe("LOP TestCase", () => {
   });
 
   describe("Check ShareHolderDao contract", async () => {
-    it("check LOP address", async () => {
-      expect(await shareHolderContract.getLOP()).to.be.equal(
-        erc20LOPContract.address
-      );
-    });
-
-    it("check vLOP address", async () => {
-      expect(await shareHolderContract.getVLOP()).to.be.equal(
-        erc20VLOPContract.address
-      );
-    });
-
-    it("check getMinVotePercent", async () => {
-      expect(await shareHolderContract.getMinVotePercent()).to.be.equal(
-        minVotePercent
-      );
-    });
-
     describe("Check `createProposal`", () => {
       it("only token holder can create a new proposal", async () => {
         const metadata = "http://localhost:3000/metadata";
@@ -165,15 +173,6 @@ describe("LOP TestCase", () => {
         )
           .to.emit(shareHolderContract, "ProposalCreated")
           .withArgs(owner.address, proposalAmount, 0, metadata);
-      });
-
-      it("check share info after create a new proposal", async () => {
-        expect(await shareHolderContract.proposalIndex()).to.be.equal(1);
-        const _shareInfo = await shareHolderContract.getShareHolderInfoByUser(
-          owner.address
-        );
-        expect(_shareInfo.created).to.be.equal(true);
-        expect(_shareInfo.budget).to.be.equal(proposalAmount);
       });
 
       it("check proposal info after create a new proposal", async () => {
@@ -212,18 +211,9 @@ describe("LOP TestCase", () => {
   });
 
   describe("Check ProductDao contract", async () => {
-    it("set shareHolderDao address correctly", async () => {
-      expect(await productDaoContract.shareHolderDao()).to.be.equal(
-        shareHolderContract.address
-      );
-    });
-
     it("check createProposal", async () => {
       const _testMetaData = "test metadata";
       await productDaoContract.connect(owner).createProposal(_testMetaData);
-      expect(
-        await productDaoContract.proposalStatus(owner.address)
-      ).to.be.equal(ProposalStatus.CREATED);
       expect(await productDaoContract.proposalIndex()).to.be.equal(1);
       const _proposalInfo = await productDaoContract.getProposalById(0);
       expect(_proposalInfo.metadata).to.be.equal(_testMetaData);
@@ -234,26 +224,42 @@ describe("LOP TestCase", () => {
     });
 
     it("check voteYes", async () => {
+      await erc20LOPContract
+        .connect(owner)
+        .approve(stakingContract.address, ethers.utils.parseEther("2"));
+      await stakingContract
+        .connect(owner)
+        .stakeLop(ethers.utils.parseEther("2"));
       await productDaoContract.connect(owner).voteYes(0);
-      expect(await productDaoContract.isVoted(owner.address, 0)).to.be.equal(
-        true
-      );
+      const votingInfo = await productDaoContract.votingList(owner.address, 0);
+      expect(votingInfo.isVoted).to.be.equal(true);
     });
 
     it("check voteNo", async () => {
       await erc20LOPContract
         .connect(owner)
-        .transfer(addr1.address, ethers.utils.parseEther("1"));
+        .transfer(addr1.address, ethers.utils.parseEther("2"));
 
+      await erc20LOPContract
+        .connect(addr1)
+        .approve(stakingContract.address, ethers.utils.parseEther("1"));
+
+      await stakingContract
+        .connect(addr1)
+        .stakeLop(ethers.utils.parseEther("1"));
+
+      await productDaoContract.connect(addr1).requestToJoin();
+      await productDaoContract.connect(owner).acceptJoinRequest(0);
       const _testMetaData = "test metadata";
       await productDaoContract.connect(addr1).createProposal(_testMetaData);
       await productDaoContract.connect(addr1).voteNo(1);
-      expect(await productDaoContract.isVoted(addr1.address, 1)).to.be.equal(
-        true
-      );
+      const votingInfo = await productDaoContract.votingList(addr1.address, 1);
+      expect(votingInfo.isVoted).to.be.equal(true);
     });
 
     it("check execute", async () => {
+      await ethers.provider.send("evm_increaseTime", [60 * 60 * 24 * 7 * 2]);
+      await ethers.provider.send("evm_mine");
       await productDaoContract.connect(owner).execute(0);
       const _proposalInfo = await productDaoContract.getProposalById(0);
       expect(_proposalInfo.status).to.be.equal(ProposalStatus.ACTIVE);
@@ -264,12 +270,6 @@ describe("LOP TestCase", () => {
     it("set usdc contract", async () => {
       expect(await treasuryDaoContract.USDC()).to.be.equal(
         usdcContract.address
-      );
-    });
-
-    it("set shareholder dao address", async () => {
-      expect(await treasuryDaoContract.shareHolderDao()).to.be.equal(
-        shareHolderContract.address
       );
     });
 
