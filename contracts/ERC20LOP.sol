@@ -40,6 +40,10 @@ contract ERC20LOP is ERC20, Ownable {
         _mint(to, amount);
     }
 
+    function burn(uint256 amount) external onlyOwner {
+        _burn(msg.sender, amount);
+    }
+
     /**
      * @param user address of user
      * @dev add user to minter list
