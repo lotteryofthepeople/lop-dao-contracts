@@ -1,11 +1,23 @@
 const { ethers } = require("hardhat");
 
 const minVotePercent = 5; // 5%
-const ERC20LOPContractAddress = "0x421C8727370aFA82Cb1b8Da97d3C10B31361A004";
-const ERC20VLOPContractAddress = "0x0584C994824b93FfE675d09aEA823Fe97Fa4ef98";
+const ERC20LOPContractAddress = "0x18c4195401b119780DFc0361B19a8e563202399B";
+const ERC20VLOPContractAddress = "0x428C18e3403EDA161D04B55982625e9C19b5a049";
 const UsdcContractAddress = "0x9FC58C925ADf1163fEE5Cd1d56e5e550624c2d91";
 
 async function main() {
+  // const lopFactory = await ethers.getContractFactory("ERC20LOP");
+  // const lopContract = await lopFactory.deploy(
+  //   ethers.utils.parseEther("10000000")
+  // );
+
+  // const vLopFactory = await ethers.getContractFactory("ERC20VLOP");
+  // const vLopContract = await vLopFactory.deploy(
+  //   ethers.utils.parseEther("10000000")
+  // );
+  // console.log("ERC20LOP===>", lopContract.address);
+  // console.log("ERC20VLOP===>", vLopContract.address);
+
   const StakingFactory = await ethers.getContractFactory("Staking");
   const stakingContract = await StakingFactory.deploy(
     ERC20LOPContractAddress,
