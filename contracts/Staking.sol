@@ -343,7 +343,7 @@ contract Staking is Ownable {
         for (uint256 i = 0; i < _votingIdsLen; i++) {
             if (_stakeInfo.shareHolderVotingIds[i] == _shareHolderProposalId) {
                 _stakeInfo.shareHolderVotingIds[i] = _stakeInfo
-                    .shareHolderVotingIds[_votingIdsLen];
+                    .shareHolderVotingIds[_votingIdsLen - 1];
                 _stakeInfo.shareHolderVotingIds.pop();
                 break;
             }
