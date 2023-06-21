@@ -339,7 +339,6 @@ contract Staking is Ownable {
     ) external onlyShareHolderContract {
         Types.StakeInfo storage _stakeInfo = _stakingList[_staker];
 
-        _stakeInfo.shareHolderVotingIds.push(_shareHolderProposalId);
         uint256 _votingIdsLen = _stakeInfo.shareHolderVotingIds.length;
         for (uint256 i = 0; i < _votingIdsLen; i++) {
             if (_stakeInfo.shareHolderVotingIds[i] == _shareHolderProposalId) {
