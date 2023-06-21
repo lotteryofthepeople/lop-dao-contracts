@@ -1,5 +1,5 @@
-const lop = "0x421C8727370aFA82Cb1b8Da97d3C10B31361A004";
-const vLop = "0x0584C994824b93FfE675d09aEA823Fe97Fa4ef98";
+const lop = "0x18c4195401b119780DFc0361B19a8e563202399B";
+const vLop = "0x428C18e3403EDA161D04B55982625e9C19b5a049";
 const minVotePercent = 5;
 
 module.exports = [lop, vLop, minVotePercent];
